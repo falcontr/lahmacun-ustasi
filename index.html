@@ -534,13 +534,20 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
           const u = new SpeechSynthesisUtterance(text);
           u.lang = 'tr-TR';
           if (!voices.length) load();
-          if (voices.length) {
-            const fem = voices.find(v => /yelda|filiz|seda|emel|female|kadın/i.test(v.name));
-            const male = voices.find(v => /cem|tolga|ahmet|male|erkek/i.test(v.name) && !/female/i.test(v.name));
-            u.voice = (c.g === 'f' || c.age === 'kid') ? (fem || voices[0]) : (male || voices[0]);
-          }
-          u.pitch = c.age === 'kid' ? 1.6 : c.g === 'f' ? (c.age === 'old' ? 1.05 : 1.25) : (c.age === 'old' ? .7 : .88);
-          u.rate = c.age === 'old' ? .9 : 1.02;
+          const male = c.g === 'm' && c.age !== 'kid';
+          const pickV = (wantMale) => {
+            const MALE = /cem|tolga|ahmet|erdem|kerem|murat|emre|\bmale\b|erkek/i, FEMALE = /yelda|filiz|seda|emel|elif|zeynep|female|kadın|google/i;
+            const score = (v) => (/natural|neural|online|premium|enhanced/i.test(v.name) ? 2 : 0) + (v.localService ? 0 : 1);
+            const list = voices.filter(v => wantMale ? (MALE.test(v.name) && !/female/i.test(v.name)) : (FEMALE.test(v.name) && !MALE.test(v.name)));
+            return list.sort((a, b) => score(b) - score(a))[0] || null;
+          };
+          const own = pickV(male);
+          const fallback = own || pickV(!male) || voices[0] || null;
+          if (fallback) u.voice = fallback;
+          const nativeMatch = !!own;
+          if (male) u.pitch = nativeMatch ? (c.age === 'old' ? .8 : .95) : (c.age === 'old' ? .42 : c.age === 'mid' ? .5 : .58);
+          else { const maleOnly = fallback && !nativeMatch && /cem|tolga|ahmet|erdem|kerem|murat|emre|\bmale\b|erkek/i.test(fallback.name) && !/female/i.test(fallback.name); u.pitch = c.age === 'kid' ? 1.55 : maleOnly ? (c.age === 'old' ? 1.35 : 1.55) : (c.age === 'old' ? .95 : 1.1); }
+          u.rate = c.age === 'old' ? .88 : male && !nativeMatch ? .95 : 1.02;
           u.volume = 1;
           u.onstart = () => Music.duck(true);
           u.onend = u.onerror = () => { Music.duck(false); if (current === u) current = null; };
