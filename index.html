@@ -409,7 +409,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
       { name: 'Adana Halayı', scale: 'hicaz', root: 261.63, meter: [2, 2, 2, 2], eighth: .2, inst: 'zurna', drum: 'B..tB.tt', busy: 't' },
       { name: 'Urfa Kemençesi', scale: 'ussak', root: 293.66, meter: [2, 2, 3], eighth: .14, inst: 'kemence', drum: 'DkTkDkT', busy: '' },
     ];
-    let ctx = null, master = null, noise = null, timer = null, nextT = 0, bar = 0, intense = false;
+    let ctx = null, master = null, noise = null, timer = null, nextT = 0, bar = 0, intense = false, held = false;
     let song = SONGS[0], tune = null, songIdx = 0;
     function rng(seed) { let x = seed >>> 0 || 1; return () => (x = (x * 1664525 + 1013904223) >>> 0) / 4294967296; }
     function compose(sg, seed) {
@@ -494,7 +494,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
       get on() { return S.music !== false; },
       get name() { return song.name; },
       start() {
-        if (S.music === false || timer) return;
+        if (S.music === false || timer || held) return;
         try {
           if (!ctx) setup();
           if (ctx.state === 'suspended') ctx.resume();
@@ -515,6 +515,14 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
         renderMusicBtn();
       },
       setIntense(v) { intense = v; },
+      // Fully silence the music while a customer speaks (iOS won't play speech over Web Audio), then start it again.
+      hold(v) {
+        held = v;
+        if (v) {
+          if (timer) { clearInterval(timer); timer = null; }
+          try { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setValueAtTime(0.0001, ctx.currentTime); ctx.suspend(); } catch (e) {}
+        } else { try { if (ctx && ctx.state === 'suspended') ctx.resume(); } catch (e) {} this.start(); }
+      },
       duck(v) { if (!timer || !ctx) return; try { const g = master.gain, n = ctx.currentTime; g.cancelScheduledValues(n); g.setValueAtTime(Math.max(.0001, g.value), n); g.exponentialRampToValueAtTime(v ? .06 : .22, n + .25); } catch (e) {} },
     };
   })();
@@ -549,12 +557,16 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
           else { const maleOnly = fallback && !nativeMatch && /cem|tolga|ahmet|erdem|kerem|murat|emre|\bmale\b|erkek/i.test(fallback.name) && !/female/i.test(fallback.name); u.pitch = c.age === 'kid' ? 1.55 : maleOnly ? (c.age === 'old' ? 1.35 : 1.55) : (c.age === 'old' ? .95 : 1.1); }
           u.rate = c.age === 'old' ? .88 : male && !nativeMatch ? .95 : 1.02;
           u.volume = 1;
-          u.onstart = () => Music.duck(true);
-          u.onend = u.onerror = () => { Music.duck(false); if (current === u) current = null; };
           current = u; // keep a reference so Chrome doesn't drop it mid-sentence
-          const go = () => { try { speechSynthesis.resume(); speechSynthesis.speak(u); } catch (e) {} };
-          // Chrome swallows an utterance queued in the same tick as cancel(), so wait a moment after cancelling
-          if (speechSynthesis.speaking || speechSynthesis.pending) { speechSynthesis.cancel(); setTimeout(go, 120); } else go();
+          Music.hold(true);
+          let done = false;
+          const release = () => { if (done) return; done = true; clearTimeout(safety); if (current === u) { current = null; Music.hold(false); } };
+          const safety = setTimeout(release, 3000 + text.length * 110);
+          u.onend = u.onerror = release;
+          const go = () => { if (current !== u) return; try { speechSynthesis.resume(); speechSynthesis.speak(u); } catch (e) { release(); } };
+          // give the audio session a moment to switch from music to speech; Chrome also drops an utterance queued right after cancel()
+          if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
+          setTimeout(go, 180);
         } catch (e) {}
       },
       unlock() {
@@ -562,7 +574,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
         unlocked = true;
         try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; u.lang = 'tr-TR'; speechSynthesis.speak(u); } catch (e) {}
       },
-      stop() { try { speechSynthesis.cancel(); } catch (e) {} Music.duck(false); },
+      stop() { const had = !!current; current = null; try { speechSynthesis.cancel(); } catch (e) {} if (had) Music.hold(false); },
     };
   })();
   function renderVoiceBtn() { const b = document.getElementById('voiceBtn'); if (!b) return; b.hidden = !Voice.ok; b.textContent = Voice.on ? 'Konuşma: açık' : 'Konuşma: kapalı'; b.setAttribute('aria-pressed', String(Voice.on)); }
