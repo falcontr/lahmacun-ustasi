@@ -979,9 +979,9 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
       <rect x="638" y="150" width="74" height="234" rx="6" fill="#e9eef0" stroke="#b8c4c9" stroke-width="3"/><rect x="638" y="150" width="74" height="26" rx="6" fill="#1f5f9a"/><text x="675" y="168" text-anchor="middle" font-family="Baloo 2, sans-serif" font-weight="800" font-size="13" fill="#fff">İÇECEK</text>
       <rect x="645" y="182" width="60" height="190" fill="#cfe6f0" opacity=".85"/>
       ${[0, 1, 2, 3].map(r => [0, 1, 2].map(c => { const [b, cp] = shelfRow[(r * 3 + c) % 6], x = 650 + c * 18, y = 196 + r * 46; return r === 0 ? `<path d="M${x} ${y + 8}h12l-1 22h-10z" fill="#fbfbf8"/><rect x="${x - 1}" y="${y + 5}" width="14" height="4" fill="#1f5f9a"/>` : `<path d="M${x + 2} ${y + 10}q0-4 3-6v-5h2v5q3 2 3 6v20h-8z" fill="${b}"/><rect x="${x + 5}" y="${y - 3}" width="2" height="3" fill="${cp}"/>`; }).join('') + `<rect x="645" y="${228 + r * 46}" width="60" height="3" fill="#a9c2cc"/>`).join('')}
-      <rect x="645" y="182" width="12" height="190" fill="#fff" opacity=".25"/></g>`;
+      <rect x="645" y="182" width="12" height="190" fill="#fff" opacity=".25"/><g class="fdoor" transform="translate(707 0) scale(1 1) translate(-707 0)"><rect x="643" y="180" width="64" height="194" rx="3" fill="rgba(215,236,245,.35)" stroke="#9fb6c2" stroke-width="3"/><rect x="647" y="252" width="4" height="34" rx="2" fill="#7f9099"/></g></g>`;
 
-    const custG = cust ? `<g id="cust" transform="translate(380 162) scale(2)"><ellipse cx="60" cy="160" rx="50" ry="6" fill="#000" opacity=".15"/>${customerInner(cust, mood)}</g>` : '';
+    const custG = cust ? `<g id="cust" transform="translate(380 162) scale(2)">${custBody(cust, mood)}</g>` : '';
     const counter = `<g>
       <rect y="440" width="1000" height="120" fill="url(#${id}-front)"/>
       <rect y="478" width="1000" height="34" fill="url(#${id}-dia)"/><rect y="474" width="1000" height="4" fill="#5a321b"/><rect y="512" width="1000" height="4" fill="#5a321b"/>
@@ -1230,7 +1230,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
   // ================= Orders =================
   let G = null;
   const qtyWord = ['bir', 'iki', 'üç'];
-  const emptyG = () => ({ c: randCustomer(), order: randOrder(), repeats: 0, phase: 'talk', prep: null, oven: [null, null, null], ready: [], bagged: [], drinks: [], cup: { slots: {}, lid: false }, tool: null, station: 0 });
+  const emptyG = () => ({ c: randCustomer(), order: randOrder(), repeats: 0, phase: 'talk', prep: null, oven: [null, null, null], ready: [], bagged: [], drinks: [], hold: null, back: false, selfServe: false, cup: { slots: {}, lid: false }, tool: null, station: 0 });
   function randOrder() {
     const d = S.day;
     const qty = d === 1 ? 1 : pick(d === 2 ? [1, 1, 2] : [1, 1, 2, 2, 3]);
@@ -1267,7 +1267,34 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
   // ================= Front screen =================
   let sayTimer = null;
   function drawScene(mood) { $('#scene').innerHTML = sceneSVG(S.equip, G ? G.c : null, mood || 'neutral'); }
-  function setMood(mood) { const g = $('#scene #cust'); if (g && G) g.innerHTML = `<ellipse cx="60" cy="160" rx="50" ry="6" fill="#000" opacity=".15"/>` + customerInner(G.c, mood); else drawScene(mood); }
+  function setMood(mood) { const g = $('#scene #cust'); if (g && G) g.innerHTML = custBody(G.c, mood); else drawScene(mood); }
+  // Customer as drawn in the shop: front or back view, plus whatever they are holding.
+  function custBody(c, mood) {
+    const shadow = `<ellipse cx="60" cy="160" rx="50" ry="6" fill="#000" opacity=".15"/>`;
+    const mine = G && G.c === c;
+    const body = mine && G.back ? customerBack(c) : customerInner(c, mood);
+    let hold = '';
+    if (mine && G.hold) {
+      if (G.hold.bag) hold += bagSVG(G.bagged.length || 1, true).replace('<svg ', `<svg x="${G.back ? 4 : 80}" y="100" width="40" height="53" `);
+      G.hold.drinks.forEach((d, i) => { hold += drinkSVG(d).replace('<svg ', `<svg x="${G.back ? 92 - i * 10 : 8 + i * 10}" y="104" width="16" height="38" `); });
+    }
+    return shadow + body + hold;
+  }
+  function customerBack(c) {
+    const H = c.hairCol, sk = shade(c.skin, .12), [sc] = c.scarf;
+    let head;
+    if (c.hair === 'scarf') head = `<ellipse cx="60" cy="72" rx="34" ry="40" fill="${sc}"/><path d="M24 90q-6 34 14 48h44q20-14 14-48z" fill="${sc}"/><path d="M40 60q20-10 40 0M36 80q24-10 48 0" stroke="${shade(sc, .3)}" stroke-width="1.2" fill="none" opacity=".6"/>`;
+    else {
+      head = `<ellipse cx="31" cy="78" rx="4.5" ry="7.5" fill="${sk}"/><ellipse cx="89" cy="78" rx="4.5" ry="7.5" fill="${sk}"/>`;
+      if (c.hair === 'bald') head += `<ellipse cx="60" cy="74" rx="29" ry="34" fill="${sk}"/><path d="M32 82q28 16 56 0v10q-28 14-56 0z" fill="${H}"/>`;
+      else head += `<ellipse cx="60" cy="74" rx="29" ry="34" fill="${H}"/><path d="M40 52q20-8 40 0M38 70q22-6 44 0" stroke="${tintc(H, .25)}" stroke-width="1" fill="none" opacity=".5"/>`;
+      if (c.hair === 'long') head += `<path d="M31 80q-2 40 6 50h46q8-10 6-50z" fill="${H}"/>`;
+      if (c.hair === 'ponytail') head += `<path d="M54 96q-4 20 6 34q10-14 6-34z" fill="${H}"/>`;
+      if (c.hair === 'bun') head += `<circle cx="60" cy="44" r="12" fill="${H}"/>`;
+      if (c.hair === 'kasket') head += `<path d="M30 62q2-30 30-30t30 30z" fill="#5b5048"/>`;
+    }
+    return `<path d="M8 162q2-48 52-50t52 50z" fill="${shade(c.shirt, .12)}"/><path d="M60 114v48" stroke="${shade(c.shirt, .3)}" stroke-width="1.4"/><rect x="51" y="98" width="18" height="20" fill="${shade(c.skin, .2)}"/>${head}`;
+  }
   function showFront(enter) {
     $('#front').hidden = false; $('#kitchen').hidden = true; $('#walk').hidden = true; $('#bazaar').hidden = true;
     Music.setIntense(false);
@@ -1298,6 +1325,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     if (!kind || kind === 'none') { b.innerHTML = ''; return; }
     const sorry = !canServe(G.order) ? `<button class="go light" data-t="sorry">Malzeme bitti, özür dile</button>` : '';
     if (kind === 'talk') b.innerHTML = `<button class="go green" data-t="ok">Tamam</button><button class="go light" data-t="again">Anlamadım, bir daha söyler misin?</button>${sorry}`;
+    if (kind === 'drinkask') { b.innerHTML = `<button class="go green" data-t="selfdrink">“İçeceğini arkadaki dolaptan alabilirsin”</button>`; return; }
     if (kind === 'handoff') { b.innerHTML = `<button class="go green" data-t="give">Poşeti ver</button>`; return; }
     if (kind === 'wait') b.innerHTML = `<button class="go green" data-t="kitchen">Mutfağa dön</button><button class="go light" data-t="again">Siparişi bir daha söyler misin?</button>${sorry}`;
   }
@@ -1311,6 +1339,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     }
     if (t.dataset.t === 'sorry') sendAway();
     if (t.dataset.t === 'give') handOver();
+    if (t.dataset.t === 'selfdrink' && G.phase === 'drinkask') selfServeDrinks();
   });
   function sendAway() {
     S.served += 1; save(); today.stars.push(0);
@@ -1725,7 +1754,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     notes.push(salBad.length ? ['İkram salata', salBad.join(' · '), false] : ['İkram salata', 'Tam, kapağı kapalı', true]);
     const want = {}, gave = {};
     for (const d of o.drinks) want[d] = (want[d] || 0) + 1;
-    for (const d of G.drinks) gave[d] = (gave[d] || 0) + 1;
+    for (const d of (G.selfServe ? o.drinks : G.drinks)) gave[d] = (gave[d] || 0) + 1;
     const dmiss = [], dextra = []; let drinkPay = 0;
     for (const d of DRINK_IDS) { const w = want[d] || 0, g = gave[d] || 0; if (g < w) dmiss.push(`${w - g} ${lower(DRINKS[d][0])}`); if (g > w) dextra.push(`${g - w} ${lower(DRINKS[d][0])}`); drinkPay += Math.min(w, g) * DRINKS[d][1]; }
     const hasDrinks = o.drinks.length > 0;
@@ -1767,7 +1796,15 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     const h = $('#handoff');
     blip(520, .08, 'triangle');
     if (!reduced && h.animate) h.animate([{ transform: h.style.transform || 'translateX(-50%)', opacity: 1 }, { transform: 'translate(-50%, -70%) scale(.55)', opacity: 0 }], { duration: 450, easing: 'ease-in', fill: 'forwards' });
-    setTimeout(() => { h.hidden = true; handing = false; finishOrder(); }, reduced ? 0 : 460);
+    setTimeout(() => {
+      h.hidden = true; handing = false;
+      G.hold = { bag: true, drinks: G.drinks.slice(0, 3) };
+      setMood('happy');
+      if (G.order.drinks.length && !G.drinks.length) {
+        G.phase = 'drinkask';
+        sayAs(G.c.name, pick(['Eline sağlık usta! İçeceğim de vardı ama.', 'Teşekkürler! Bir de içeceğim vardı.']), G.c, () => setTalkBtns('drinkask'));
+      } else finishOrder();
+    }, reduced ? 0 : 460);
   }
   function bindHandoff() {
     const h = $('#handoff'); let st = null;
@@ -1779,6 +1816,44 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
       else h.style.transform = '';
     };
     h.addEventListener('pointerup', up); h.addEventListener('pointercancel', () => { st = null; h.style.transform = ''; });
+  }
+  // One spoken line with the name shown in the bubble; calls next when it has been said.
+  function sayAs(name, text, who, next) {
+    $('#bubble').innerHTML = `<b>${esc(name)}</b>${esc(text)}`; setTalkBtns('none');
+    if (Voice.speak(text, who, next) === false) setTimeout(next, Math.max(1100, text.length * 50));
+  }
+  function tweenCust(from, to, dur, done) {
+    const g = $('#scene #cust'); if (!g || reduced) { if (g) g.setAttribute('transform', `translate(${to[0]} ${to[1]}) scale(${to[2]})`); done(); return; }
+    const t0 = performance.now();
+    const step = () => {
+      const k = Math.min(1, (performance.now() - t0) / dur), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      const x = from[0] + (to[0] - from[0]) * e, y = from[1] + (to[1] - from[1]) * e - Math.abs(Math.sin(k * Math.PI * 6)) * 5 * (1 - k), sc = from[2] + (to[2] - from[2]) * e;
+      g.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${sc.toFixed(3)})`);
+      if (k < 1) setTimeout(step, 16); else done();
+    };
+    step();
+  }
+  function fridgeDoor(open, done) {
+    const d = $('#scene .fdoor'); if (!d || reduced) { done(); return; }
+    const t0 = performance.now(), a = open ? 1 : .12, b = open ? .12 : 1;
+    const step = () => { const k = Math.min(1, (performance.now() - t0) / 350), v = a + (b - a) * k; d.setAttribute('transform', `translate(707 0) scale(${v.toFixed(3)} 1) translate(-707 0)`); if (k < 1) setTimeout(step, 16); else done(); };
+    step();
+  }
+  // The customer turns around, walks to the drink fridge on the back wall, takes their drinks and comes back.
+  function selfServeDrinks() {
+    G.phase = 'selfserve';
+    sayAs('Sen', pick(['İçeceğini arkadaki dolaptan alabilirsin.', 'Ayranını arkadaki dolaptan alabilirsin, buyur.']).replace('Ayranını', G.order.drinks.includes('ayran') || G.order.drinks.includes('buyukayran') ? 'Ayranını' : 'İçeceğini'), { g: 'm', age: 'mid' }, () => {
+      sayAs(G.c.name, pick(['Tamam!', 'Tamam usta, sağ ol.', 'Tamamdır!']), G.c, () => {
+        G.back = true; setMood('neutral');
+        tweenCust([380, 162, 2], [452, 150, 1.7], 1200, () => fridgeDoor(true, () => setTimeout(() => {
+          G.hold.drinks = G.order.drinks.slice(0, 3); setMood('neutral'); blip(820, .05, 'triangle', .04);
+          setTimeout(() => fridgeDoor(false, () => {
+            G.back = false; setMood('happy');
+            tweenCust([452, 150, 1.7], [380, 162, 2], 1200, () => { G.selfServe = true; finishOrder(); });
+          }), reduced ? 0 : 350);
+        }, reduced ? 0 : 400)));
+      });
+    });
   }
   function finishOrder() {
     G.phase = 'done';
