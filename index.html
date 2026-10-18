@@ -257,7 +257,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
           <div class="meters" id="meters"></div>
         </div>
         <div class="station gutter" id="st2">
-          <div class="st-head"><h2>3. Salata ve paket</h2><p>Pişenleri kağıda sar, ikram salatayı hazırla, poşetle.</p></div>
+          <div class="st-head"><h2>3. Salata ve paket</h2><p>Pişenleri ikiye katla, ikram salatayı hazırla, poşetle.</p></div>
           <div class="pack-grid">
             <div class="panel">
               <h3>Pişen lahmacunlar <small id="readyCount"></small></h3>
@@ -297,6 +297,14 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     </div>
     <button class="go" type="submit">Dükkanı aç</button>
   </form>
+</div>
+<div class="modal" id="startModal" hidden>
+  <div class="sheet" style="align-items:center;text-align:center">
+    <div id="startBadge" style="width:120px;height:120px"></div>
+    <h1 id="startBrand"></h1>
+    <p>Müşteriler siparişini sesli söyler, arkada Urfa ve Antep havaları çalar. Sesini aç ve başla.</p>
+    <button class="go green" id="startBtn" style="font-size:1.5rem;padding:16px 48px">Oyna</button>
+  </div>
 </div>
 <div class="modal" id="resultModal" hidden><div class="sheet" id="resultSheet"></div></div>
 <div class="modal" id="decorModal" hidden><div class="sheet wide" id="decorSheet"></div></div>
@@ -515,6 +523,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
         renderMusicBtn();
       },
       setIntense(v) { intense = v; },
+      // A context created or resumed before the first tap stays suspended; resume it on any tap.
+      wake() { try { if (!ctx) { if (S.music !== false) setup(); else return; } if (ctx.state !== 'running' && !held) ctx.resume(); } catch (e) {} },
       // Fully silence the music while a customer speaks (iOS won't play speech over Web Audio), then start it again.
       hold(v) {
         held = v;
@@ -579,7 +589,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
   })();
   function renderVoiceBtn() { const b = document.getElementById('voiceBtn'); if (!b) return; b.hidden = !Voice.ok; b.textContent = Voice.on ? 'Konuşma: açık' : 'Konuşma: kapalı'; b.setAttribute('aria-pressed', String(Voice.on)); }
   function renderMusicBtn() { const b = document.getElementById('musicBtn'); if (!b) return; b.textContent = Music.on ? `Müzik: ${Music.name}` : 'Müzik: kapalı'; b.setAttribute('aria-pressed', String(Music.on)); }
-  document.addEventListener('pointerdown', (e) => { Voice.unlock(); if (!e.target.closest('#musicBtn')) Music.start(); });
+  document.addEventListener('pointerdown', (e) => { Voice.unlock(); Music.wake(); if (!e.target.closest('#musicBtn')) Music.start(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) Music.stop(); else if (Music.on && actx) Music.start(); });
 
   // ================= Brand art =================
@@ -606,8 +616,12 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     let tops = '';
     const n = Math.min(rolls, 3);
     if (!closed) for (let i = 0; i < n; i++) {
-      const x = 70 + (i - (n - 1) / 2) * 26, h = 30 + (i % 2) * 8;
-      tops += `<g><rect x="${x - 11}" y="${48 - h}" width="22" height="${h + 20}" fill="#fbf7ee" stroke="#e1d9c8"/><ellipse cx="${x}" cy="${48 - h}" rx="11" ry="4.5" fill="#e3c08c"/><path d="M${x - 7} ${48 - h}a7 3 0 1 0 14 0a4 2 0 1 0 -8 0" fill="none" stroke="#a8432e" stroke-width="2"/></g>`;
+      // a lahmacun folded in half, standing in the bag with its round edge up, on a sheet of wax paper
+      const x = 70 + (i - (n - 1) / 2) * 16, by = 52 - (i % 2) * 4, r = 38, rot = (i - (n - 1) / 2) * 5;
+      tops += `<g transform="rotate(${rot} ${x} ${by})"><path d="M${x - r - 4} ${by}A${r + 4} ${r + 4} 0 0 1 ${x + r + 4} ${by}z" fill="#fbf7ee" stroke="#e1d9c8"/>
+        <path d="M${x - r} ${by}A${r} ${r} 0 0 1 ${x + r} ${by}z" fill="#d6a05c"/><path d="M${x - r + 3} ${by}A${r - 3} ${r - 3} 0 0 1 ${x + r - 3} ${by}" fill="none" stroke="#a8432e" stroke-width="2.4"/>
+        <path d="M${x - r + 7} ${by}A${r - 7} ${r - 7} 0 0 1 ${x + r - 7} ${by}" fill="none" stroke="#e7bf82" stroke-width="5" opacity=".7"/>
+        ${[[-.6, .55], [-.2, .85], [.3, .75], [.65, .45], [0, .4]].map(([dx, dy]) => `<circle cx="${(x + dx * r * .8).toFixed(1)}" cy="${(by - dy * r * .8).toFixed(1)}" r="1.8" fill="#4a2410" opacity=".7"/>`).join('')}</g>`;
     }
     const zig = `<path d="M16 48l9 6 9-6 9 6 9-6 9 6 9-6 9 6 9-6 9 6 9-6 9 6 9-6" fill="none" stroke="#d3c8b2" stroke-width="2"/>`;
     return `<svg viewBox="0 0 140 360" aria-label="${esc(name)} poşeti">
@@ -1521,17 +1535,25 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
   function renderPack() {
     const r = $('#ready');
     $('#readyCount').textContent = G.ready.length ? `${G.ready.length} hazır` : '';
-    r.innerHTML = G.ready.length ? G.ready.map((it, i) => `<div class="rcard"><canvas width="${110 * K}" height="${110 * K}" data-r="${i}"></canvas><small>${bakeLabel(it.bake)}</small><div style="display:flex;gap:4px"><button class="mini green" data-wrap="${i}">Kağıda sar</button><button class="mini" data-bin2="${i}">Çöp</button></div></div>`).join('') : '<p class="empty">Fırından çıkan lahmacunlar buraya gelir.</p>';
+    r.innerHTML = G.ready.length ? G.ready.map((it, i) => `<div class="rcard"><canvas width="${110 * K}" height="${110 * K}" data-r="${i}"></canvas><small>${bakeLabel(it.bake)}</small><div style="display:flex;gap:4px"><button class="mini green" data-wrap="${i}">İkiye katla</button><button class="mini" data-bin2="${i}">Çöp</button></div></div>`).join('') : '<p class="empty">Fırından çıkan lahmacunlar buraya gelir.</p>';
     for (const cv of r.querySelectorAll('canvas')) { const c = cv.getContext('2d'); c.setTransform(K, 0, 0, K, 0, 0); c.drawImage(G.ready[+cv.dataset.r].img, 0, 0, 110, 110); }
     $('#bagView').innerHTML = bagSVG(G.bagged.length, false);
-    $('#bagText').textContent = G.bagged.length ? `Poşette ${G.bagged.length} lahmacun` : 'Kağıda sardığın lahmacunlar uzun poşete girer.';
+    $('#bagText').textContent = G.bagged.length ? `Poşette ${G.bagged.length} lahmacun` : 'İkiye katladığın lahmacunlar kağıtla uzun poşete girer.';
     drawCup();
     $('#lidBtn').textContent = G.cup.lid ? 'Kapağı aç' : 'Kapağı kapat';
     $('#deliverBtn').disabled = !G.bagged.length;
   }
   $('#ready').addEventListener('click', (e) => {
     const w = e.target.closest('[data-wrap]'), t = e.target.closest('[data-bin2]');
-    if (w) { const it = G.ready.splice(+w.dataset.wrap, 1)[0]; G.bagged.push(it); blip(350, .1, 'triangle'); renderPack(); renderTabs(); }
+    if (w && !w.disabled) {
+      const i = +w.dataset.wrap, cv = w.closest('.rcard').querySelector('canvas');
+      for (const b of $('#ready').querySelectorAll('button')) b.disabled = true;
+      blip(350, .1, 'triangle');
+      const move = () => { const it = G.ready.splice(i, 1)[0]; if (it) G.bagged.push(it); renderPack(); renderTabs(); };
+      // fold the top half down over the bottom half
+      if (!reduced && cv.animate) cv.animate([{ clipPath: 'inset(0 0 0 0)', transform: 'none' }, { clipPath: 'inset(50% 0 0 0)', transform: 'translateY(-10%) scaleY(1.1)' }], { duration: 380, easing: 'ease-in', fill: 'forwards' });
+      setTimeout(move, reduced ? 0 : 400);
+    }
     if (t) { G.ready.splice(+t.dataset.bin2, 1); blip(160, .15, 'sawtooth', .03); renderPack(); renderTabs(); }
   });
   $('#deliverBtn').addEventListener('click', deliver);
@@ -1773,7 +1795,18 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
   buildKitchen();
   renderHud();
   if (!S.setup) { G = emptyG(); drawScene('neutral'); $('#bubble').innerHTML = '<b>Hoş geldin!</b>Dükkanını açınca ilk müşterin gelecek.'; openSetup(); }
-  else startDay();
+  else {
+    G = emptyG(); drawScene('neutral'); $('#bubble').innerHTML = `<b>${esc(S.brand)}</b>Dükkan açılmaya hazır.`;
+    $('#startBadge').innerHTML = logoBadge(S.logo, S.color, 120);
+    $('#startBrand').textContent = S.brand;
+    $('#startModal').hidden = false;
+    $('#startBtn').focus();
+  }
+  $('#startBtn').addEventListener('click', () => {
+    $('#startModal').hidden = true;
+    Voice.unlock(); Music.wake(); Music.start();
+    startDay();
+  });
 })();
 </script>
 </body>
