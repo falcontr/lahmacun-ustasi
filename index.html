@@ -198,6 +198,46 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
 .mrow small { color: var(--ink-soft); font-weight: 700; font-variant-numeric: tabular-nums; }
 .mrow small.low { color: var(--pepper-dark); }
 
+/* Walk to / from the market */
+.walk { position: relative; background: #9fd3ea; overflow: hidden; }
+.walk svg { display: block; width: 100%; height: auto; }
+.walk-text { position: absolute; left: 0; right: 0; top: 16px; margin: 0; text-align: center; font-family: var(--display); font-weight: 800; font-size: 1.6rem; color: var(--ink); text-shadow: 0 2px 0 rgba(255,255,255,.7); }
+.walk .w-far, .walk .w-near { animation: none; }
+.walk.go .w-far { animation: wfar 2.8s linear forwards; }
+.walk.go .w-near { animation: wnear 2.8s linear forwards; }
+.walk.back .w-far { animation: wfar 2.8s linear reverse forwards; }
+.walk.back .w-near { animation: wnear 2.8s linear reverse forwards; }
+@keyframes wfar { from { transform: translateX(0); } to { transform: translateX(-1000px); } }
+@keyframes wnear { from { transform: translateX(0); } to { transform: translateX(-2000px); } }
+.walk .leg { transform-box: fill-box; transform-origin: 50% 0; animation: swing .34s ease-in-out infinite alternate; }
+.walk .leg2 { animation-delay: -.34s; }
+.walk .ubody { animation: bob .17s ease-in-out infinite alternate; }
+@keyframes swing { from { transform: rotate(20deg); } to { transform: rotate(-20deg); } }
+@keyframes bob { to { transform: translateY(-4px); } }
+
+/* Market */
+.bazaar { background: linear-gradient(#cfe9f5, #efe6d6 220px); padding-bottom: 24px; }
+.bz-head svg { display: block; width: 100%; height: auto; }
+.bz-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding-block: 12px 4px; }
+.bz-bar h2 { margin: 0; font-family: var(--display); font-size: 1.6rem; }
+.bz-note { margin: 0 0 12px; color: var(--ink-soft); font-weight: 700; }
+.stalls { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; align-items: start; }
+.stall { position: relative; background: #b98a55; border-radius: 6px 6px 10px 10px; box-shadow: 0 8px 14px rgba(0,0,0,.18); display: flex; flex-direction: column; min-width: 0; }
+.stall .awning { height: 46px; border-radius: 6px 6px 0 0; background: repeating-linear-gradient(90deg, var(--aw) 0 26px, #fffdf7 26px 52px); position: relative; }
+.stall .awning::after { content: ""; position: absolute; left: 0; right: 0; bottom: -12px; height: 14px; background: radial-gradient(circle at 13px 0, var(--aw) 12px, transparent 13px) 0 0 / 52px 14px repeat-x, radial-gradient(circle at 39px 0, #fffdf7 12px, transparent 13px) 0 0 / 52px 14px repeat-x; }
+.stall-top { display: flex; align-items: flex-end; gap: 10px; padding: 18px 12px 0; background: linear-gradient(#e9d7b8, #dcc39a); }
+.stall-top svg { width: 64px; height: 80px; flex: none; display: block; }
+.stall-top b { font-family: var(--display); font-size: 1.15rem; line-height: 1.1; padding-bottom: 10px; }
+.goods { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; padding: 10px; background: #8a5a32; border-top: 6px solid #6b4222; }
+.good { display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; border-radius: 10px; padding: 6px; background: #f6efe2; cursor: pointer; box-shadow: 0 3px 0 #5a361b; font-weight: 800; }
+.good canvas { width: 64px; height: 64px; border-radius: 8px; background: linear-gradient(145deg, #c9a46c, #a87a44); }
+.good span { font-size: .85rem; }
+.good small { font-size: .72rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.good small.have { color: var(--leaf-dark); }
+.good:disabled { opacity: .5; cursor: not-allowed; }
+.good:active { transform: translateY(2px); }
+.bz-foot { display: flex; justify-content: flex-end; padding-top: 18px; }
+
 /* Decor shop */
 .decor-preview { border-radius: 12px; overflow: hidden; }
 .decor-preview svg { display: block; width: 100%; height: auto; }
@@ -222,7 +262,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     <span class="pill money" id="moneyPill"></span>
     <button class="hud-btn" id="musicBtn" aria-pressed="true"></button>
     <button class="hud-btn" id="voiceBtn" aria-pressed="true"></button>
-    <button class="hud-btn" id="stockBtn">Pazar</button>
+    <button class="hud-btn" id="stockBtn">Stok</button>
     <button class="hud-btn" id="decorBtn">Dükkanı güzelleştir</button>
   </header>
 
@@ -275,6 +315,16 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
         </div>
       </div>
     </div>
+  </section>
+
+  <section class="walk" id="walk" hidden><div id="walkScene"></div><p class="walk-text" id="walkText"></p></section>
+
+  <section class="bazaar" id="bazaar" hidden>
+    <div class="bz-head" id="bzHead"></div>
+    <div class="bz-bar gutter"><h2 id="bzTitle"></h2><span class="pill money" id="bzMoney"></span></div>
+    <p class="bz-note gutter">Tezgahlardan istediğini al. Pazar sadece Salı, Perşembe ve Pazar sabahları kurulur, sonraki pazara kadar yetecek kadar al.</p>
+    <div class="stalls gutter" id="stalls"></div>
+    <div class="bz-foot gutter"><button class="go teal" id="bzBack">Alışverişi bitir, dükkana dön</button></div>
   </section>
 </div>
 
@@ -1155,7 +1205,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
   function drawScene(mood) { $('#scene').innerHTML = sceneSVG(S.equip, G ? G.c : null, mood || 'neutral'); }
   function setMood(mood) { const g = $('#scene #cust'); if (g && G) g.innerHTML = `<ellipse cx="60" cy="160" rx="50" ry="6" fill="#000" opacity=".15"/>` + customerInner(G.c, mood); else drawScene(mood); }
   function showFront(enter) {
-    $('#front').hidden = false; $('#kitchen').hidden = true;
+    $('#front').hidden = false; $('#kitchen').hidden = true; $('#walk').hidden = true; $('#bazaar').hidden = true;
     Music.setIntense(false);
     drawScene('neutral');
     if (enter && !reduced) { const g = $('#scene #cust'); if (g) g.animate([{ transform: 'translate(-300px,162px) scale(2)' }, { transform: 'translate(380px,162px) scale(2)' }], { duration: 650, easing: 'ease-out' }); }
@@ -1201,7 +1251,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     setMood('sad'); $('#bubble').innerHTML = `<b>${esc(G.c.name)}</b>Hay aksi! Başka zaman gelirim o zaman.`; setTalkBtns('none'); Voice.speak('Hay aksi! Başka zaman gelirim o zaman.', G.c);
     const dayOver = S.served >= PER_DAY;
     setTimeout(() => {
-      $('#resultSheet').innerHTML = `<h2>Müşteri eli boş gitti</h2><p>Stok yetmediği için sipariş hazırlanamadı. Üstteki Pazar düğmesinden her gün malzeme alabilirsin.</p><button class="go" id="nextBtn">${dayOver ? 'Günü bitir' : 'Sıradaki müşteri'}</button>`;
+      $('#resultSheet').innerHTML = `<h2>Müşteri eli boş gitti</h2><p>Stok yetmediği için sipariş hazırlanamadı. Pazar Salı, Perşembe ve Pazar sabahları kurulur, o gün yeterince malzeme al.</p><button class="go" id="nextBtn">${dayOver ? 'Günü bitir' : 'Sıradaki müşteri'}</button>`;
       $('#resultModal').hidden = false;
       $('#nextBtn').onclick = () => dayOver ? showDayEnd() : nextCustomer();
     }, 900);
@@ -1226,7 +1276,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     bindPrep(); bindOven(); bindCup(); bindSwipe();
   }
   function showKitchen() {
-    $('#front').hidden = true; $('#kitchen').hidden = false;
+    $('#front').hidden = true; $('#kitchen').hidden = false; $('#walk').hidden = true; $('#bazaar').hidden = true;
     Music.setIntense(true);
     goStation(G.station, true); renderHolding(); renderKitchen(); renderHud();
     window.scrollTo({ top: 0 });
@@ -1275,7 +1325,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
   function renderKitchen() { renderStock(); renderTabs(); drawPrep(); renderPrepUI(); drawOven(); renderMeters(); renderPack(); }
 
   function useStock(id) {
-    if (S.stock[id] <= 0) { toast(`${ING[id].ad} bitti! Üstteki Pazar düğmesinden alabilirsin.`); blip(180, .2, 'sawtooth', .04); return false; }
+    if (S.stock[id] <= 0) { toast(`${ING[id].ad} bitti! Sonraki pazar: ${nextMarketName()} sabahı.`); blip(180, .2, 'sawtooth', .04); return false; }
     S.stock[id]--; save(); renderStock(); return true;
   }
   function onBin(id) {
@@ -1284,7 +1334,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
       if (!useStock('hamur')) return;
       G.prep = newItem(); renderItem(G.prep); drawPrep(); renderPrepUI(); renderTabs(); blip(380, .07); return;
     }
-    if (S.stock[id] <= 0) { toast(`${ING[id].ad} bitti! Üstteki Pazar düğmesinden alabilirsin.`); return; }
+    if (S.stock[id] <= 0) { toast(`${ING[id].ad} bitti! Sonraki pazar: ${nextMarketName()} sabahı.`); return; }
     G.tool = G.tool === id ? null : id; blip(520, .04); renderHolding();
   }
   $('#prepBins').addEventListener('click', (e) => { const b = e.target.closest('.bin'); if (b) onBin(b.dataset.bin); });
@@ -1663,48 +1713,138 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
         <li class="ok"><span>Kasadaki para</span><b>${S.money.toLocaleString('tr-TR')} ₺</b></li>
         ${low.length ? `<li class="bad"><span>Azalan stok</span><b>${esc(low.join(', '))}</b></li>` : ''}
       </ul>
-      <p>Yarın ${tomorrow}. Azalan malzemeleri Türk Pazarı'ndan her gün alabilirsin.</p>
+      <p>${MARKET_DAYS.includes(S.day % 7) ? `Yarın ${tomorrow}, sabah pazar kuruluyor! Azalan malzemeleri oradan alabilirsin.` : `Yarın ${tomorrow}. Sonraki pazar: ${nextMarketName(1)} sabahı.`}</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="go light" id="dayDecor">Dükkanı güzelleştir</button><button class="go" id="newDayBtn">${tomorrow} gününe başla</button></div>`;
     const advance = () => { S.day += 1; S.served = 0; save(); today = { earn: 0, stars: [] }; };
     $('#newDayBtn').onclick = () => { $('#resultModal').hidden = true; advance(); startDay(); };
     $('#dayDecor').onclick = () => { $('#resultModal').hidden = true; advance(); openDecor(startDay); };
   }
+  // ================= Market days: Tuesday, Thursday, Sunday mornings =================
+  const MARKET_DAYS = [1, 3, 6];
+  const isMarketDay = () => MARKET_DAYS.includes(weekday());
+  function nextMarketName(from = 0) {
+    for (let d = from; d < from + 7; d++) { const w = (S.day - 1 + d) % 7; if (MARKET_DAYS.includes(w) && (d > 0 || S.market !== S.day)) return GUNLER[w]; }
+    return GUNLER[MARKET_DAYS[0]];
+  }
   function startDay() {
     renderHud();
-    nextCustomer();
+    if (!isMarketDay() || S.market === S.day) { nextCustomer(); return; }
+    const low = Object.keys(START_STOCK).filter(k => S.stock[k] <= 5).map(k => lower(ING[k].ad));
+    $('#resultSheet').innerHTML = `
+      <div class="market-head">${marketHead()}</div>
+      <h1>Günaydın! Bugün ${GUNLER[weekday()]}, pazar kuruldu.</h1>
+      <p>Pazar sadece Salı, Perşembe ve Pazar sabahları kurulur. Dükkanı açmadan önce gidip malzeme alabilirsin.</p>
+      ${low.length ? `<ul class="notes"><li class="bad"><span>Azalan malzemeler</span><b>${esc(low.join(', '))}</b></li></ul>` : ''}
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="go teal" id="goMarket">Pazara git</button><button class="go light" id="skipMarket">Bugün gitme, dükkanı aç</button></div>`;
+    $('#resultModal').hidden = false;
+    $('#goMarket').onclick = () => { $('#resultModal').hidden = true; S.market = S.day; save(); walkTo('go', openBazaar); };
+    $('#skipMarket').onclick = () => { $('#resultModal').hidden = true; S.market = S.day; save(); nextCustomer(); };
   }
-
-  // ================= Market (Wednesdays) =================
-  let afterMarket = null;
-  function openMarket(after) { afterMarket = after || null; renderMarket(); $('#marketModal').hidden = false; }
   function marketHead() {
     return `<svg viewBox="0 0 800 170" aria-hidden="true"><rect width="800" height="170" fill="#9fd3ea"/><rect y="120" width="800" height="50" fill="#b8b0a0"/>
       ${Array.from({ length: 16 }, (_, i) => `<path d="M${i * 50} 20h50v40q-25 14-50 0z" fill="${i % 2 ? '#fffdf7' : '#c8322b'}"/>`).join('')}
       <rect x="0" y="12" width="800" height="10" fill="#6b3a18"/><rect x="30" y="20" width="8" height="110" fill="#6b3a18"/><rect x="762" y="20" width="8" height="110" fill="#6b3a18"/>
       ${[[110, '#d93a2b'], [230, '#f2d23a'], [350, '#7cb850'], [470, '#e9d9ee'], [590, '#3c8f2f'], [700, '#5e1a12']].map(([x, col]) => `<g><path d="M${x - 50} 100h100l-8 40h-84z" fill="#a8743f"/><path d="M${x - 50} 100h100" stroke="#6b4222" stroke-width="4"/>${Array.from({ length: 9 }, (_, j) => `<circle cx="${x - 36 + (j % 5) * 18}" cy="${92 - Math.floor(j / 5) * 12}" r="9" fill="${col}"/><circle cx="${x - 39 + (j % 5) * 18}" cy="${89 - Math.floor(j / 5) * 12}" r="3" fill="#fff" opacity=".35"/>`).join('')}</g>`).join('')}
-      <rect x="290" y="30" width="220" height="34" rx="8" fill="#fffdf7"/><text x="400" y="55" text-anchor="middle" font-family="Baloo 2, sans-serif" font-weight="800" font-size="24" fill="#2a1a12">Türk Pazarı</text></svg>`;
+      <rect x="290" y="30" width="220" height="34" rx="8" fill="#fffdf7"/><text x="400" y="55" text-anchor="middle" font-family="Baloo 2, sans-serif" font-weight="800" font-size="24" fill="#2a1a12">${GUNLER[weekday()]} Pazarı</text></svg>`;
   }
+
+  // ---- walking between the shop and the market ----
+  function ustaSVG(full) {
+    return `<g class="ubody">
+      <rect class="leg" x="-13" y="58" width="11" height="40" rx="4" fill="#3a3a44"/><rect class="leg leg2" x="2" y="58" width="11" height="40" rx="4" fill="#2f2f38"/>
+      <path d="M-24 62q0-46 24-48q24 2 24 48z" fill="#f6f3ee"/><path d="M-14 30h28v34h-28z" fill="#fffdf7" stroke="#e1dbd0"/><path d="M-6 20l6 8 6-8" fill="#c8322b"/>
+      <ellipse cx="0" cy="0" rx="17" ry="19" fill="#e0b48a"/><path d="M-17 -2q0-16 17-17t17 17q-4-8-17-9t-17 9z" fill="#2f1e13"/>
+      <path d="M-15 -14q-6-22 15-22t15 22z" fill="#fffdf7" stroke="#e1dbd0"/><circle cx="-8" cy="-30" r="9" fill="#fffdf7"/><circle cx="8" cy="-30" r="9" fill="#fffdf7"/><circle cx="0" cy="-36" r="10" fill="#fffdf7"/>
+      <circle cx="-6" cy="0" r="2" fill="#2a1a12"/><circle cx="6" cy="0" r="2" fill="#2a1a12"/><path d="M-8 9q4-4 8 0q4-4 8 0q-3 3-8 1q-5 2-8-1z" fill="#2f1e13"/>
+      <rect x="18" y="26" width="7" height="30" rx="3" fill="#f6f3ee"/>
+      <g transform="translate(14 54)">${full ? `<path d="M0 0h26l-4 30h-18z" fill="#3c8f2f" opacity=".9"/><circle cx="8" cy="-2" r="6" fill="#d93a2b"/><circle cx="17" cy="-4" r="5" fill="#f2d23a"/><path d="M4 -4q6-14 16-4" fill="#3c8f2f"/><path d="M0 0h26M3 10h20M5 20h16" stroke="#2a6a20" stroke-width="1.2"/>` : `<path d="M2 0h22l-3 26h-16z" fill="none" stroke="#3c8f2f" stroke-width="2"/><path d="M4 8h18M5 16h16" stroke="#3c8f2f" stroke-width="1.2"/>`}<path d="M2 0q11-12 22 0" fill="none" stroke="#2a6a20" stroke-width="2"/></g>
+    </g>`;
+  }
+  function streetRow(seed, w, near) {
+    let x = 0, out = '', k = seed;
+    const r = () => (k = (k * 1664525 + 1013904223) >>> 0) / 4294967296;
+    const cols = ['#e9c9a0', '#d9a37a', '#cfd9c0', '#e8d6b8', '#c9b49a', '#f0e0c8', '#b8c9d6'];
+    while (x < w) {
+      if (near) { out += `<g transform="translate(${x + 40} 0)"><rect x="-3" y="200" width="6" height="140" fill="#3a3a3a"/><path d="M-3 200q0-14 22-14" fill="none" stroke="#3a3a3a" stroke-width="5"/><rect x="14" y="186" width="16" height="12" rx="3" fill="#f6d68a"/><circle cx="-60" cy="332" r="16" fill="#3c8f2f"/><circle cx="-48" cy="322" r="12" fill="#4f9e34"/></g>`; x += 250; continue; }
+      const bw = 110 + r() * 80, bh = 120 + r() * 120, c = cols[(r() * cols.length) | 0];
+      out += `<g transform="translate(${x.toFixed(0)} 0)"><rect x="0" y="${(330 - bh).toFixed(0)}" width="${bw.toFixed(0)}" height="${bh.toFixed(0)}" fill="${c}" stroke="#a89a88"/><rect x="-4" y="${(322 - bh).toFixed(0)}" width="${(bw + 8).toFixed(0)}" height="10" fill="#9a4a2a"/>`;
+      for (let wy = 344 - bh; wy < 280; wy += 44) for (let wx = 14; wx < bw - 26; wx += 34) out += `<rect x="${wx}" y="${wy.toFixed(0)}" width="20" height="26" fill="#8fb5c9" stroke="#fff" stroke-width="2"/>`;
+      if (r() < .5) out += `<path d="M10 288h${(bw - 20).toFixed(0)}l6 14H4z" fill="${pick(['#c8322b', '#1d7f86', '#e07a1f'])}"/><rect x="18" y="302" width="${(bw - 36).toFixed(0)}" height="28" fill="#5b3a22"/>`;
+      out += `</g>`; x += bw + 8;
+    }
+    return out;
+  }
+  let walkBuilt = false;
+  function walkTo(dir, then) {
+    const box = $('#walkScene');
+    if (!walkBuilt) {
+      const far = streetRow(11, 1000, false), near = streetRow(3, 1000, true);
+      box.innerHTML = `<svg viewBox="0 0 1000 420" aria-label="Pazara yürüyüş"><defs><linearGradient id="wsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fc8e4"/><stop offset="1" stop-color="#f6e3c0"/></linearGradient></defs>
+        <rect width="1000" height="420" fill="url(#wsky)"/><circle cx="820" cy="80" r="40" fill="#ffe7a0"/>
+        <g class="w-far">${far}<g transform="translate(1000 0)">${far}</g></g>
+        <rect y="330" width="1000" height="90" fill="#c9c2b6"/><rect y="330" width="1000" height="8" fill="#a8a094"/>${Array.from({ length: 21 }, (_, i) => `<rect x="${i * 50}" y="338" width="2" height="82" fill="#b3ab9e"/>`).join('')}
+        <g class="w-near">${near}<g transform="translate(1000 0)">${near}</g><g transform="translate(2000 0)">${near}</g></g>
+        <g id="ustaWalk" transform="translate(480 248)"></g></svg>`;
+      walkBuilt = true;
+    }
+    const going = dir === 'go';
+    $('#ustaWalk').innerHTML = `<g transform="scale(${going ? 1 : -1} 1)">${ustaSVG(!going)}</g><ellipse cx="0" cy="100" rx="30" ry="6" fill="#000" opacity=".2"/>`;
+    $('#walkText').textContent = going ? 'Pazara gidiyorsun…' : 'Dükkana dönüyorsun…';
+    const w = $('#walk');
+    for (const id of ['#front', '#kitchen', '#bazaar']) $(id).hidden = true;
+    w.className = 'walk'; void w.offsetWidth; w.className = 'walk ' + dir; w.hidden = false;
+    window.scrollTo({ top: 0 });
+    setTimeout(() => { w.hidden = true; then(); }, reduced ? 300 : 2900);
+  }
+
+  // ---- the market itself: stalls under striped awnings ----
+  const MP = Object.fromEntries(MARKET.map(([id, n, p]) => [id, [n, p]]));
+  const vendor = (o) => Object.assign({ skin: '#e0b48a', hairCol: '#2f1e13', iris: '#4a2c17', shirt: '#6b7a8a', scarf: SCARVES[0], glasses: false, face: '' }, o);
+  const STALLS = [
+    { ad: 'Hamurcu Ahmet', aw: '#c8322b', items: ['hamur'], v: vendor({ g: 'm', age: 'mid', hair: 'kasket', face: 'mustache', shirt: '#f2efe8' }) },
+    { ad: 'Kasap Hüseyin', aw: '#8f1f1a', items: ['harc'], v: vendor({ g: 'm', age: 'mid', hair: 'short', face: 'beard', shirt: '#b8566e', skin: '#d2a173' }) },
+    { ad: 'Manav Hatice', aw: '#2f7d4a', items: ['domates', 'marul', 'limon', 'sogan', 'sarimsak', 'aci'], v: vendor({ g: 'f', age: 'old', hair: 'scarf', scarf: SCARVES[2], shirt: '#5a3a6b' }) },
+    { ad: 'Yeşillikçi Fadime', aw: '#5f8a2a', items: ['maydanoz', 'yesillik'], v: vendor({ g: 'f', age: 'mid', hair: 'scarf', scarf: SCARVES[5], shirt: '#2a6f76', skin: '#c98b62' }) },
+    { ad: 'Baharatçı Mahmut', aw: '#e07a1f', items: ['isot'], v: vendor({ g: 'm', age: 'old', hair: 'bald', face: 'mustache', hairCol: '#bdb7ae', glasses: true, shirt: '#8a5a2a' }) },
+    { ad: 'Ambalajcı Cemal', aw: '#1f5f9a', items: ['paket'], v: vendor({ g: 'm', age: 'young', hair: 'short', face: 'stubble', shirt: '#2f5f9a' }) },
+  ];
+  const THANKS = ['Buyur, afiyet olsun!', 'Hayırlı işler usta!', 'Bereketli olsun!', 'Yine bekleriz!', 'Taze taze, al götür!'];
+  function openBazaar() {
+    for (const id of ['#front', '#kitchen', '#walk']) $(id).hidden = true;
+    $('#bzHead').innerHTML = marketHead();
+    $('#bazaar').hidden = false;
+    renderBazaar();
+    window.scrollTo({ top: 0 });
+  }
+  function renderBazaar() {
+    $('#bzTitle').textContent = `${GUNLER[weekday()]} Pazarı`;
+    $('#bzMoney').textContent = S.money.toLocaleString('tr-TR') + ' ₺';
+    $('#stalls').innerHTML = STALLS.map((st, si) => `<div class="stall" style="--aw:${st.aw}"><div class="awning"></div>
+      <div class="stall-top">${customerSVG(st.v, 'happy')}<b>${st.ad}</b></div>
+      <div class="goods">${st.items.map(id => `<button class="good" data-buy="${id}" data-st="${si}" ${S.money >= MP[id][1] ? '' : 'disabled'}><canvas width="${64 * K}" height="${64 * K}" data-ic="${id}"></canvas><span>${ING[id].ad}</span><small>${MP[id][0]} adet · ${MP[id][1]} ₺</small><small class="have">Elinde: ${S.stock[id]}</small></button>`).join('')}</div></div>`).join('');
+    for (const cv of document.querySelectorAll('#stalls canvas')) drawIcon(cv.getContext('2d'), cv.dataset.ic, 64);
+  }
+  $('#stalls').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-buy]'); if (!b || b.disabled) return;
+    const id = b.dataset.buy, [n, price] = MP[id];
+    if (S.money < price) return;
+    S.money -= price; S.stock[id] += n; save(); blip(700, .06); renderHud();
+    toast(`${STALLS[+b.dataset.st].ad}: ${pick(THANKS)} (+${n} ${lower(ING[id].ad)})`);
+    renderBazaar();
+  });
+  $('#bzBack').addEventListener('click', () => walkTo('back', () => nextCustomer()));
+
+  // ---- stock view (any day) ----
+  function openMarket() { renderMarket(); $('#marketModal').hidden = false; }
   function renderMarket() {
     $('#marketSheet').innerHTML = `
-      <div class="market-head">${marketHead()}</div>
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h2>Pazar alışverişi</h2><span class="pill money">${S.money.toLocaleString('tr-TR')} ₺</span></div>
-      <p>Pazar her gün açık. Biten ya da azalan malzemeleri buradan al, kutuların köşesinde kaç tane kaldığı yazar.</p>
-      <div class="mlist">${MARKET.map(([id, n, price]) => `<div class="mrow"><canvas width="${56 * K}" height="${56 * K}" data-ic="${id}"></canvas><div><b>${ING[id].ad}</b><small class="${S.stock[id] <= 3 ? 'low' : ''}">Elinde: ${S.stock[id]} · ${n} adet ${price} ₺</small></div><button class="mini green" data-buy="${id}" ${S.money >= price ? '' : 'disabled'}>Al</button></div>`).join('')}</div>
-      <button class="go teal" data-close>Pazardan dön</button>`;
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h2>Stok durumu</h2><span class="pill money">${S.money.toLocaleString('tr-TR')} ₺</span></div>
+      <p>Pazar sadece Salı, Perşembe ve Pazar sabahları kurulur. Sonraki pazar: ${nextMarketName()} sabahı.</p>
+      <div class="mlist">${MARKET.map(([id]) => `<div class="mrow"><canvas width="${56 * K}" height="${56 * K}" data-ic="${id}"></canvas><div><b>${ING[id].ad}</b><small class="${S.stock[id] <= 3 ? 'low' : ''}">Elinde: ${S.stock[id]}</small></div><span></span></div>`).join('')}</div>
+      <button class="go light" data-close>Kapat</button>`;
     for (const cv of document.querySelectorAll('#marketSheet canvas')) drawIcon(cv.getContext('2d'), cv.dataset.ic, 56);
   }
-  $('#marketSheet').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-buy]');
-    if (b && !b.disabled) {
-      const [id, n, price] = MARKET.find(x => x[0] === b.dataset.buy);
-      if (S.money < price) return;
-      S.money -= price; S.stock[id] += n; save(); blip(700, .06); renderMarket(); renderHud(); if (G && !$('#kitchen').hidden) renderStock(); return;
-    }
-    if (e.target.closest('[data-close]')) {
-      $('#marketModal').hidden = true;
-      if (afterMarket) { const f = afterMarket; afterMarket = null; f(); }
-    }
-  });
+  $('#marketSheet').addEventListener('click', (e) => { if (e.target.closest('[data-close]')) $('#marketModal').hidden = true; });
   $('#stockBtn').addEventListener('click', () => openMarket());
 
   // ================= HUD =================
