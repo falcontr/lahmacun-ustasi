@@ -147,7 +147,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
 .rcard small { font-weight: 800; color: var(--ink-soft); }
 .empty { color: var(--ink-soft); font-weight: 700; margin: 0; }
 .bagrow { display: flex; gap: 12px; align-items: flex-end; }
-.bagrow svg { width: 110px; height: auto; flex: none; display: block; }
+#bagView { flex: none; width: min(220px, 55%); }
+.bagrow svg { width: 100%; height: auto; display: block; }
 .salad-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; max-width: 320px; }
 #cup { width: 100%; height: auto; aspect-ratio: 240 / 170; cursor: pointer; touch-action: manipulation; display: block; }
 .cup-actions { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -237,6 +238,14 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
 .good:disabled { opacity: .5; cursor: not-allowed; }
 .good:active { transform: translateY(2px); }
 .bz-foot { display: flex; justify-content: flex-end; padding-top: 18px; }
+.talkbox { position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(640px, calc(100% - 32px)); z-index: 25;
+  display: flex; gap: 12px; align-items: center; background: var(--paper); border-radius: 18px; padding: 10px 16px 10px 10px; box-shadow: 0 10px 30px rgba(0,0,0,.3); cursor: pointer; animation: pop .25s ease-out; box-sizing: border-box; }
+.talkbox.usta { flex-direction: row-reverse; padding: 10px 10px 10px 16px; text-align: right; }
+.talkbox .tb-face { width: 64px; height: 76px; flex: none; border-radius: 12px; background: #efe3cf; overflow: hidden; }
+.talkbox .tb-face svg { width: 100%; height: 100%; display: block; }
+.talkbox b { display: block; font-family: var(--display); color: var(--pepper); }
+.talkbox p { margin: 0; font-weight: 700; line-height: 1.35; }
+.talkbox small { display: block; color: var(--ink-soft); font-weight: 700; font-size: .75rem; margin-top: 2px; }
 
 /* Decor shop */
 .decor-preview { border-radius: 12px; overflow: hidden; }
@@ -297,7 +306,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
           <div class="meters" id="meters"></div>
         </div>
         <div class="station gutter" id="st2">
-          <div class="st-head"><h2>3. Salata ve paket</h2><p>Pişenleri ikiye katla, ikram salatayı hazırla, poşetle.</p></div>
+          <div class="st-head"><h2>3. Salata ve paket</h2><p>Pişenleri ikiye katlayıp kutuya koy, ikram salatayı hazırla, poşetle.</p></div>
           <div class="pack-grid">
             <div class="panel">
               <h3>Pişen lahmacunlar <small id="readyCount"></small></h3>
@@ -311,7 +320,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
               <div class="cup-actions"><button class="mini" id="lidBtn"></button><button class="mini" id="cupEmpty">Kabı boşalt</button></div>
             </div>
           </div>
-          <div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="go green" id="deliverBtn">Poşeti kapat ve teslim et</button></div>
+          <div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="go green" id="deliverBtn">Kutuyu kapat, poşetle ve teslim et</button></div>
         </div>
       </div>
     </div>
@@ -329,11 +338,12 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
 </div>
 
 <div class="toast" id="toast" hidden></div>
+<div class="talkbox" id="talkbox" hidden><div class="tb-face" id="tbFace"></div><div style="min-width:0;flex:1"><b id="tbName"></b><p id="tbText"></p><small>Geçmek için dokun</small></div></div>
 
 <div class="modal" id="setupModal" hidden>
   <form class="sheet" id="setupForm">
     <h1>Dükkanını aç</h1>
-    <p>Lahmacun dükkanına bir isim ver ve logosunu seç. Tabela, kağıtlar ve poşetler bu isimle basılacak.</p>
+    <p>Lahmacun dükkanına bir isim ver ve logosunu seç. Tabela, kutular ve poşetler bu isimle basılacak.</p>
     <div class="setup-row">
       <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
         <label class="field-label" for="brandInput">Dükkanın adı</label>
@@ -375,7 +385,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     domates:   { ad: 'Domates',   sifat: 'domatesli' },
     yesillik:  { ad: 'Roka',      sifat: 'rokalı' },
     marul:     { ad: 'Marul' },
-    paket:     { ad: 'Kağıt ve poşet' },
+    paket:     { ad: 'Kutu ve poşet' },
   };
   const TOPS = ['sogan', 'maydanoz', 'aci', 'sarimsak', 'isot', 'limon', 'domates', 'yesillik'];
   const SALADS = ['marul', 'domates', 'limon'];
@@ -596,8 +606,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     return {
       get ok() { return ok; },
       get on() { return ok && S.voice !== false; },
-      speak(text, c) {
-        if (!this.on || !c) return;
+      speak(text, c, onDone) {
+        if (!this.on || !c) return false;
         try {
           const u = new SpeechSynthesisUtterance(text);
           u.lang = 'tr-TR';
@@ -620,7 +630,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
           current = u; // keep a reference so Chrome doesn't drop it mid-sentence
           Music.hold(true);
           let done = false;
-          const release = () => { if (done) return; done = true; clearTimeout(safety); if (current === u) { current = null; Music.hold(false); } };
+          const release = () => { if (done) return; done = true; clearTimeout(safety); if (current === u) { current = null; Music.hold(false); } if (onDone) onDone(); };
           const safety = setTimeout(release, 3000 + text.length * 110);
           u.onend = u.onerror = release;
           const go = () => { if (current !== u) return; try { speechSynthesis.resume(); speechSynthesis.speak(u); } catch (e) { release(); } };
@@ -659,33 +669,48 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
   const logoBadge = (id, color, size) => `<svg viewBox="0 0 100 100" width="${size}" height="${size}" aria-hidden="true">${badgeGroup(id, color, 0, 0, 100)}</svg>`;
   const fitSize = (text, max, width) => Math.min(max, Math.floor(width / Math.max(1, text.length * 0.56)));
 
-  // Long rectangular lahmacun bag, like real lahmacun shops use.
-  function bagSVG(rolls, closed) {
-    const name = S.brand || 'Lahmacun', id = uid();
-    const fs = fitSize(name, 17, 84);
-    let tops = '';
-    const n = Math.min(rolls, 3);
-    if (!closed) for (let i = 0; i < n; i++) {
-      // a lahmacun folded in half, standing in the bag with its round edge up, on a sheet of wax paper
-      const x = 70 + (i - (n - 1) / 2) * 16, by = 52 - (i % 2) * 4, r = 38, rot = (i - (n - 1) / 2) * 5;
-      tops += `<g transform="rotate(${rot} ${x} ${by})"><path d="M${x - r - 4} ${by}A${r + 4} ${r + 4} 0 0 1 ${x + r + 4} ${by}z" fill="#fbf7ee" stroke="#e1d9c8"/>
-        <path d="M${x - r} ${by}A${r} ${r} 0 0 1 ${x + r} ${by}z" fill="#d6a05c"/><path d="M${x - r + 3} ${by}A${r - 3} ${r - 3} 0 0 1 ${x + r - 3} ${by}" fill="none" stroke="#a8432e" stroke-width="2.4"/>
-        <path d="M${x - r + 7} ${by}A${r - 7} ${r - 7} 0 0 1 ${x + r - 7} ${by}" fill="none" stroke="#e7bf82" stroke-width="5" opacity=".7"/>
-        ${[[-.6, .55], [-.2, .85], [.3, .75], [.65, .45], [0, .4]].map(([dx, dy]) => `<circle cx="${(x + dx * r * .8).toFixed(1)}" cy="${(by - dy * r * .8).toFixed(1)}" r="1.8" fill="#4a2410" opacity=".7"/>`).join('')}</g>`;
-    }
-    const zig = `<path d="M16 48l9 6 9-6 9 6 9-6 9 6 9-6 9 6 9-6 9 6 9-6 9 6 9-6" fill="none" stroke="#d3c8b2" stroke-width="2"/>`;
-    return `<svg viewBox="0 0 140 360" aria-label="${esc(name)} poşeti">
-      <defs><linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e9e1d0"/><stop offset=".18" stop-color="#fbf8f1"/><stop offset=".8" stop-color="#f4eee2"/><stop offset="1" stop-color="#ddd3bf"/></linearGradient></defs>
-      <ellipse cx="70" cy="352" rx="62" ry="6" fill="rgba(0,0,0,.15)"/>
-      ${tops}
-      <path d="M16 48h108v296a6 6 0 0 1-6 6H22a6 6 0 0 1-6-6z" fill="url(#${id}g)"/>
-      ${closed ? `<path d="M16 48h108v34H16z" fill="#efe7d6"/><path d="M16 82h108" stroke="#d3c8b2" stroke-width="2"/>${zig}${badgeGroup(S.logo, S.color, 58, 55, 24)}` : zig}
-      <path d="M30 60v280M110 60v280" stroke="#e7dfcf" stroke-width="1.5"/>
-      <rect x="16" y="104" width="108" height="10" fill="${S.color}"/><rect x="16" y="300" width="108" height="10" fill="${S.color}"/>
-      ${badgeGroup(S.logo, S.color, 34, 132, 72)}
-      <text x="70" y="236" text-anchor="middle" font-family="Baloo 2, Trebuchet MS, sans-serif" font-weight="800" font-size="${fs}" fill="${S.color}">${esc(name)}</text>
-      <text x="70" y="256" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="800" font-size="8" letter-spacing="1.6" fill="#7a5a34">TAŞ FIRIN LAHMACUN</text>
-      <text x="70" y="284" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="700" font-size="9" fill="#9a7a54">Afiyet olsun</text>
+  // Packaging: folded lahmacuns go into a cardboard box, the box into a kraft carrier bag with handles.
+  function foldedHalf(x, y, r, rot) {
+    return `<g transform="rotate(${rot} ${x} ${y})"><path d="M${x - r - 3} ${y}A${r + 3} ${r + 3} 0 0 1 ${x + r + 3} ${y}z" fill="#fbf7ee" stroke="#e1d9c8"/>
+      <path d="M${x - r} ${y}A${r} ${r} 0 0 1 ${x + r} ${y}z" fill="#d6a05c"/><path d="M${x - r + 3} ${y}A${r - 3} ${r - 3} 0 0 1 ${x + r - 3} ${y}" fill="none" stroke="#a8432e" stroke-width="2.4"/>
+      <path d="M${x - r + 7} ${y}A${r - 7} ${r - 7} 0 0 1 ${x + r - 7} ${y}" fill="none" stroke="#e7bf82" stroke-width="5" opacity=".7"/>
+      ${[[-.6, .55], [-.2, .85], [.3, .75], [.65, .45], [0, .4]].map(([dx, dy]) => `<circle cx="${(x + dx * r * .8).toFixed(1)}" cy="${(y - dy * r * .8).toFixed(1)}" r="1.8" fill="#4a2410" opacity=".7"/>`).join('')}</g>`;
+  }
+  function boxSVG(n, closed) {
+    const name = S.brand || 'Lahmacun', fs = fitSize(name, 20, 150);
+    if (closed) return `<svg viewBox="0 0 260 190" aria-label="Kapalı lahmacun kutusu">
+      <ellipse cx="130" cy="180" rx="118" ry="8" fill="rgba(0,0,0,.15)"/>
+      <path d="M20 60h220v112H20z" fill="#b8874d"/><path d="M14 40h232v120H14z" fill="#d1a265" stroke="#8d6230" stroke-width="2"/>
+      <path d="M14 40l14 12h204l14-12" fill="none" stroke="#a87a42" stroke-width="2"/><path d="M100 160h60" stroke="#a87a42" stroke-width="4"/>
+      ${badgeGroup(S.logo, S.color, 104, 54, 52)}
+      <text x="130" y="136" text-anchor="middle" font-family="Baloo 2, Trebuchet MS, sans-serif" font-weight="800" font-size="${fs}" fill="${S.color}">${esc(name)}</text></svg>`;
+    let inside = '';
+    const k = Math.min(n, 3);
+    for (let i = 0; i < k; i++) inside += foldedHalf(130 + (i - (k - 1) / 2) * 46, 150 - (i % 2) * 6, 46, (i - (k - 1) / 2) * 6);
+    return `<svg viewBox="0 0 260 190" aria-label="Açık lahmacun kutusu">
+      <ellipse cx="130" cy="180" rx="118" ry="8" fill="rgba(0,0,0,.15)"/>
+      <path d="M30 70l14-62h172l14 62z" fill="#c99a5b" stroke="#8d6230" stroke-width="2"/>${badgeGroup(S.logo, S.color, 112, 16, 36)}
+      <path d="M20 70h220v104H20z" fill="#b8874d" stroke="#8d6230" stroke-width="2"/><path d="M28 78h204v88H28z" fill="#d8b07a"/>
+      ${inside || '<text x="130" y="130" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="800" font-size="14" fill="#8d6230">Kutu boş</text>'}
+      <path d="M20 174h220" stroke="#8d6230" stroke-width="3"/></svg>`;
+  }
+  // Hand-carried kraft paper bag with rope handles; the closed box sits inside.
+  function bagSVG(n, closed) {
+    if (!closed) return boxSVG(n, false);
+    const name = S.brand || 'Lahmacun', id = uid(), fs = fitSize(name, 20, 140);
+    return `<svg viewBox="0 0 220 290" aria-label="${esc(name)} poşeti">
+      <defs><linearGradient id="${id}k" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c9a06a"/><stop offset=".25" stop-color="#ddb985"/><stop offset=".8" stop-color="#d4ad78"/><stop offset="1" stop-color="#b98f5a"/></linearGradient></defs>
+      <ellipse cx="110" cy="282" rx="96" ry="7" fill="rgba(0,0,0,.15)"/>
+      <path d="M62 80C60 20 160 20 158 80" fill="none" stroke="#7a5230" stroke-width="7" stroke-linecap="round"/>
+      <path d="M62 80C60 20 160 20 158 80" fill="none" stroke="#a87a48" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 5"/>
+      <path d="M40 64h140v18H40z" fill="#d1a265" stroke="#8d6230" stroke-width="2"/>
+      <path d="M22 74h176l-10 202H32z" fill="url(#${id}k)"/><path d="M22 74h176l-2 12H24z" fill="#b98f5a"/>
+      <circle cx="64" cy="92" r="4" fill="#7a5230"/><circle cx="156" cy="92" r="4" fill="#7a5230"/>
+      <path d="M40 270l-14-180M180 270l14-180" stroke="#b08452" stroke-width="1.5" opacity=".6"/>
+      <rect x="26" y="112" width="168" height="10" fill="${S.color}"/>
+      ${badgeGroup(S.logo, S.color, 72, 134, 76)}
+      <text x="110" y="238" text-anchor="middle" font-family="Baloo 2, Trebuchet MS, sans-serif" font-weight="800" font-size="${fs}" fill="${S.color}">${esc(name)}</text>
+      <text x="110" y="258" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="800" font-size="9" letter-spacing="1.8" fill="#6b4a28">TAŞ FIRIN LAHMACUN</text>
     </svg>`;
   }
 
@@ -931,7 +956,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
       <g><rect x="640" y="396" width="40" height="32" rx="3" fill="#c9ccce"/><rect x="640" y="396" width="8" height="32" fill="#e6e8e9"/><path d="M646 396q14-14 28 0" fill="#fff"/></g>
       <ellipse cx="712" cy="426" rx="22" ry="7" fill="#000" opacity=".2"/><ellipse cx="712" cy="424" rx="20" ry="7" fill="#e9e2d6"/><ellipse cx="712" cy="421" rx="15" ry="4" fill="#5e1a12"/>
       <ellipse cx="760" cy="426" rx="22" ry="7" fill="#000" opacity=".2"/><ellipse cx="760" cy="424" rx="20" ry="7" fill="#e9e2d6"/><ellipse cx="760" cy="421" rx="15" ry="4" fill="#8f1f2a"/>
-      ${[0, 1, 2].map(i => `<g transform="translate(${838 + i * 34} 0)"><rect x="0" y="${334 + (i % 2) * 6}" width="28" height="${94 - (i % 2) * 6}" fill="#f7f3ea" stroke="#ddd3bf"/><rect x="0" y="${352 + (i % 2) * 6}" width="28" height="4" fill="${S.color}"/>${badgeGroup(S.logo, S.color, 4, 368, 20)}</g>`).join('')}
+      ${[0, 1, 2].map(i => `<g transform="translate(${832 + i * 40} ${(i % 2) * 6})"><path d="M8 364q10-22 20 0" fill="none" stroke="#7a5230" stroke-width="2.5"/><path d="M0 364h36l-3 64H3z" fill="#d4ad78"/><path d="M0 364h36l-1 4H1z" fill="#b98f5a"/><rect x="1" y="374" width="34" height="3" fill="${S.color}"/>${badgeGroup(S.logo, S.color, 8, 384, 20)}</g>`).join('')}
     </g>`;
 
     return `<svg viewBox="0 0 1000 560" role="img" aria-label="${esc(name)} dükkanı">
@@ -1588,7 +1613,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     r.innerHTML = G.ready.length ? G.ready.map((it, i) => `<div class="rcard"><canvas width="${110 * K}" height="${110 * K}" data-r="${i}"></canvas><small>${bakeLabel(it.bake)}</small><div style="display:flex;gap:4px"><button class="mini green" data-wrap="${i}">İkiye katla</button><button class="mini" data-bin2="${i}">Çöp</button></div></div>`).join('') : '<p class="empty">Fırından çıkan lahmacunlar buraya gelir.</p>';
     for (const cv of r.querySelectorAll('canvas')) { const c = cv.getContext('2d'); c.setTransform(K, 0, 0, K, 0, 0); c.drawImage(G.ready[+cv.dataset.r].img, 0, 0, 110, 110); }
     $('#bagView').innerHTML = bagSVG(G.bagged.length, false);
-    $('#bagText').textContent = G.bagged.length ? `Poşette ${G.bagged.length} lahmacun` : 'İkiye katladığın lahmacunlar kağıtla uzun poşete girer.';
+    $('#bagText').textContent = G.bagged.length ? `Kutuda ${G.bagged.length} lahmacun` : 'İkiye katladığın lahmacunlar karton kutuya girer.';
     drawCup();
     $('#lidBtn').textContent = G.cup.lid ? 'Kapağı aç' : 'Kapağı kapat';
     $('#deliverBtn').disabled = !G.bagged.length;
@@ -1667,10 +1692,10 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
       : pick(['Bu ne böyle? Parasını vermem!', 'Ben bunu istememiştim ki!']);
     const m = $('#resultModal'), sh = $('#resultSheet');
     const hasCup = SALADS.some(id => G.cup.slots[id]);
-    sh.innerHTML = `<h2>Poşet kapatılıyor…</h2><div class="deliver-view">${bagSVG(G.bagged.length, false)}</div>`;
+    sh.innerHTML = `<h2>Kutu kapatılıyor…</h2><div class="deliver-view">${boxSVG(G.bagged.length, true)}</div>`;
     m.hidden = false; blip(250, .12, 'square', .04);
     setTimeout(() => {
-      sh.innerHTML = `<h2>Sipariş hazır</h2><div class="deliver-view">${bagSVG(G.bagged.length, true)}${hasCup ? cupMiniSVG() : ''}</div>`;
+      sh.innerHTML = `<h2>Kutu poşete kondu</h2><div class="deliver-view">${bagSVG(G.bagged.length, true)}${hasCup ? cupMiniSVG() : ''}</div>`;
       blip(450, .1, 'triangle');
     }, reduced ? 300 : 1000);
     setTimeout(() => {
@@ -1808,8 +1833,41 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     { ad: 'Baharatçı Mahmut', aw: '#e07a1f', items: ['isot'], v: vendor({ g: 'm', age: 'old', hair: 'bald', face: 'mustache', hairCol: '#bdb7ae', glasses: true, shirt: '#8a5a2a' }) },
     { ad: 'Ambalajcı Cemal', aw: '#1f5f9a', items: ['paket'], v: vendor({ g: 'm', age: 'young', hair: 'short', face: 'stubble', shirt: '#2f5f9a' }) },
   ];
-  const THANKS = ['Buyur, afiyet olsun!', 'Hayırlı işler usta!', 'Bereketli olsun!', 'Yine bekleriz!', 'Taze taze, al götür!'];
+  const THANKS = ['Buyur, afiyet olsun!', 'Hayırlı işler usta!', 'Bereketli olsun!', 'Yine bekleriz!', 'Hadi hayırlısı, bol kazançlar!'];
+  const USTA = { g: 'm', age: 'mid' };
+  const PRAISE = {
+    hamur: ['Sabah açtım, yumuş yumuş!', 'Hamur dediğin böyle olur usta.'],
+    harc: ['Kuzu kıyma, sabah çektim. Biberi, domatesi içinde.', 'Harç dediğin böyle olur, bak rengine!'],
+    isot: ["Urfa'nın en iyi isotu, güneşte kuruttuk.", 'Yağlı yağlı isot, kokusu buradan geliyor.'],
+    domates: ['Bahçeden yeni geldi, kıpkırmızı!'], marul: ['Çıtır çıtır marul, su gibi.'], limon: ['Mis gibi limon, sulu sulu.'],
+    sogan: ['Mor soğan, tatlı tatlı.'], sarimsak: ['Taşköprü sarımsağı, gözünü kapa al.'], aci: ['Antep biberi, acısı tam kıvamında.'],
+    maydanoz: ['Maydanoz bu sabah toplandı.'], yesillik: ['Roka taze, yaprak yaprak.'], paket: ['Kutular sağlam, poşetler kalın usta.'],
+  };
+  const honor = (v) => v.g === 'f' ? 'abla' : v.age === 'old' ? 'amca' : 'abi';
+  const firstName = (st) => st.ad.split(' ').pop();
+  const ustaFace = () => `<svg viewBox="-30 -50 60 72">${ustaSVG(false)}</svg>`;
+  let dlg = null, visitedStalls = new Set();
+  function showLine(who, text, stall) {
+    const box = $('#talkbox');
+    box.classList.toggle('usta', who === USTA);
+    $('#tbFace').innerHTML = who === USTA ? ustaFace() : customerSVG(stall.v, 'talk');
+    $('#tbName').textContent = who === USTA ? 'Sen' : stall.ad;
+    $('#tbText').textContent = text;
+    box.hidden = false;
+  }
+  function runDialog(lines, stall) { dlg = { lines, stall, i: 0, tok: 0 }; nextLine(); }
+  function nextLine() {
+    if (!dlg) return;
+    const d = dlg, tok = ++d.tok;
+    if (d.i >= d.lines.length) { dlg = null; setTimeout(() => { if (!dlg) $('#talkbox').hidden = true; }, 900); return; }
+    const [who, text] = d.lines[d.i++];
+    showLine(who, text, d.stall);
+    const go = () => { if (dlg === d && d.tok === tok) nextLine(); };
+    if (Voice.speak(text, who === USTA ? USTA : d.stall.v, go) === false) setTimeout(go, Math.max(1500, text.length * 55));
+  }
+  $('#talkbox').addEventListener('click', () => { if (dlg) { const d = dlg; d.tok++; Voice.stop(); dlg = d; nextLine(); } else $('#talkbox').hidden = true; });
   function openBazaar() {
+    visitedStalls = new Set();
     for (const id of ['#front', '#kitchen', '#walk']) $(id).hidden = true;
     $('#bzHead').innerHTML = marketHead();
     $('#bazaar').hidden = false;
@@ -1826,13 +1884,31 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
   }
   $('#stalls').addEventListener('click', (e) => {
     const b = e.target.closest('[data-buy]'); if (!b || b.disabled) return;
-    const id = b.dataset.buy, [n, price] = MP[id];
-    if (S.money < price) return;
+    const id = b.dataset.buy, si = +b.dataset.st, st = STALLS[si], [n, base] = MP[id];
+    if (S.money < base) return;
+    const item = lower(ING[id].ad), h = honor(st.v), nm = firstName(st);
+    const lines = [];
+    let price = base;
+    if (!visitedStalls.has(si)) {
+      visitedStalls.add(si);
+      lines.push([USTA, pick([`Kolay gelsin ${nm} ${h}! ${ING[id].ad} ne kadar?`, `Selamünaleyküm ${nm} ${h}, ${item} taze mi?`, `Günaydın ${nm} ${h}! Bana ${item} lazım.`])]);
+      lines.push([st, `${pick(['Hoş geldin usta!', 'Aleykümselam usta, buyur!', 'Günaydın usta, sefa geldin!'])} ${pick(PRAISE[id])} On tanesi ${base} lira.`]);
+      if (base >= 20 && Math.random() < .45) {
+        lines.push([USTA, pick(['Biraz indirim yap da hep senden alayım.', 'Komşuyuz, bir el at bakalım fiyata.', 'Pahalı olmuş be, biraz kır şunu.'])]);
+        if (Math.random() < .6) { price = base - 5; lines.push([st, pick([`Senin hatırına 5 lira düştüm, ${price} lira olsun.`, `Tamam usta, kırmayayım seni. ${price} lira.`])]); }
+        else lines.push([st, pick(['Olmaz usta, bu fiyata bulamazsın!', 'Vallahi kâr etmiyorum, son fiyat bu.'])]);
+      }
+      lines.push([USTA, pick(['Tamam, ver bakalım on tane.', 'Anlaştık, koy bakalım.', 'Ver o zaman, hayırlı olsun.'])]);
+    } else {
+      lines.push([USTA, pick([`${nm} ${h}, on tane ${item} daha ver.`, `Bir on tane de ${item} koy ${h}.`])]);
+    }
+    lines.push([st, pick(THANKS)]);
     S.money -= price; S.stock[id] += n; save(); blip(700, .06); renderHud();
-    toast(`${STALLS[+b.dataset.st].ad}: ${pick(THANKS)} (+${n} ${lower(ING[id].ad)})`);
+    toast(`+${n} ${item} · ${price} ₺`);
     renderBazaar();
+    runDialog(lines, st);
   });
-  $('#bzBack').addEventListener('click', () => walkTo('back', () => nextCustomer()));
+  $('#bzBack').addEventListener('click', () => { dlg = null; Voice.stop(); $('#talkbox').hidden = true; walkTo('back', () => nextCustomer()); });
 
   // ---- stock view (any day) ----
   function openMarket() { renderMarket(); $('#marketModal').hidden = false; }
