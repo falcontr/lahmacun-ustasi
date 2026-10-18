@@ -314,7 +314,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
               <div class="bagrow"><div id="bagView"></div><p class="empty" id="bagText"></p></div>
             </div>
             <div class="panel">
-              <h3>İkram salata <small>sadece marul, domates, limon</small></h3>
+              <h3>İkram salata <small>her siparişe: marul solda, domates ortada, limon sağda</small></h3>
               <div class="salad-row" id="saladBins"></div>
               <canvas id="cup" aria-label="Salata kabı"></canvas>
               <div class="cup-actions"><button class="mini" id="lidBtn"></button><button class="mini" id="cupEmpty">Kabı boşalt</button></div>
@@ -470,12 +470,12 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     };
     // meter: groups of eighths per bar; drum: one letter per eighth (D düm, T tek, k soft tek, B davul, t davul stick)
     const SONGS = [
-      { name: 'Urfa Sıra Gecesi', scale: 'ussak', root: 293.66, meter: [3, 2, 2, 3], eighth: .17, inst: 'saz', drum: 'D.kT.D.T.k', busy: 'k' },
-      { name: 'Urfa Halayı', scale: 'ussak', root: 293.66, meter: [2, 2, 2, 2], eighth: .19, inst: 'zurna', drum: 'B..tB.t.', busy: 't' },
-      { name: 'Antep Halayı', scale: 'kurdi', root: 329.63, meter: [2, 2, 2, 2], eighth: .15, inst: 'zurna', drum: 'B.tBB.t.', busy: 't' },
-      { name: 'Antep Oyun Havası', scale: 'hicaz', root: 293.66, meter: [2, 2, 2, 3], eighth: .16, inst: 'saz', drum: 'D.TkD.TkT', busy: 'k' },
-      { name: 'Adana Halayı', scale: 'hicaz', root: 261.63, meter: [2, 2, 2, 2], eighth: .2, inst: 'zurna', drum: 'B..tB.tt', busy: 't' },
-      { name: 'Urfa Kemençesi', scale: 'ussak', root: 293.66, meter: [2, 2, 3], eighth: .14, inst: 'kemence', drum: 'DkTkDkT', busy: '' },
+      { name: 'Antep Karşılaması', scale: 'hicaz', root: 293.66, meter: [2, 2, 2, 3], eighth: .15, inst: 'zurna', drum: 'B.tBB.t.t', busy: 't' },
+      { name: 'Gaziantep Oyun Havası', scale: 'ussak', root: 293.66, meter: [2, 2, 2, 3], eighth: .155, inst: 'klarnet', drum: 'D.TkD.TkT', busy: 'k' },
+      { name: 'Bağlama Karşılaması', scale: 'hicaz', root: 293.66, meter: [2, 2, 2, 3], eighth: .16, inst: 'saz', drum: 'D.TkD.TkT', busy: 'k' },
+      { name: 'Kilis Oyun Havası', scale: 'kurdi', root: 329.63, meter: [2, 2, 2, 3], eighth: .15, inst: 'klarnet', drum: 'D.T.D.TTT', busy: 'k' },
+      { name: 'Urfa Karşılaması', scale: 'ussak', root: 261.63, meter: [2, 2, 2, 3], eighth: .16, inst: 'zurna', drum: 'B.tB..tBt', busy: 't' },
+      { name: 'Davul Zurna Oyun Havası', scale: 'rast', root: 293.66, meter: [2, 2, 2, 3], eighth: .145, inst: 'zurna', drum: 'B.tBB.tBt', busy: 't' },
     ];
     let ctx = null, master = null, noise = null, timer = null, nextT = 0, bar = 0, intense = false, held = false;
     let song = SONGS[0], tune = null, songIdx = 0;
@@ -1200,21 +1200,18 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     const qty = d === 1 ? 1 : pick(d === 2 ? [1, 1, 2] : [1, 1, 2, 2, 3]);
     const nTop = pick(d === 1 ? [0, 1, 1, 2] : [0, 1, 2, 2, 3, 3, 4]);
     const tops = shuffle(TOPS).slice(0, nTop);
-    const sal = shuffle(SALADS).slice(0, pick([0, 1, 2, 2, 3]));
-    return { qty, toppings: TOPS.filter(t => tops.includes(t)), salad: SALADS.filter(s => sal.includes(s)) };
+    return { qty, toppings: TOPS.filter(t => tops.includes(t)), salad: SALADS.slice() };
   }
   function orderText(o) {
     const t = o.toppings.map(id => ING[id].sifat);
     const q = o.qty === 1 ? 'bir' : qtyWord[o.qty - 1] + ' tane';
     const main = t.length ? `Bana ${q} ${joinTr(t)} lahmacun yapar mısın?` : `Bana ${q} sade lahmacun, üstüne hiçbir şey koyma.`;
-    const s = o.salad.map(id => lower(ING[id].ad));
-    return main + (s.length ? ` İkram salataya da ${joinTr(s)} koy.` : ' İkram salata istemem.');
+    return main;
   }
   function canServe(o) {
     const st = S.stock;
     if (st.hamur < o.qty || st.harc < o.qty || st.paket < 1) return false;
     for (const id of o.toppings) if (st[id] < o.qty) return false;
-    for (const id of o.salad) if (st[id] < 1) return false;
     return true;
   }
   function newCustomer() {
@@ -1568,20 +1565,27 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
 
   // ---- Salad & pack station ----
   const CUPW = 240, CUPH = 170;
-  const CUP_SLOTS = { marul: [72, 98], domates: [122, 100], limon: [172, 98] };
+  const CUP_SECT = { marul: [24, 88], domates: [88, 152], limon: [152, 216] };
+  const cupFill = {};
   function drawCup() {
     const cv = $('#cup'), c = cv.getContext('2d'); c.setTransform(K, 0, 0, K, 0, 0); c.clearRect(0, 0, CUPW, CUPH);
     const rr = (x, y, w, h, r) => { c.beginPath(); if (c.roundRect) c.roundRect(x, y, w, h, r); else c.rect(x, y, w, h); };
     c.fillStyle = 'rgba(0,0,0,.18)'; c.beginPath(); c.ellipse(120, 158, 104, 9, 0, 0, Math.PI * 2); c.fill();
     rr(20, 42, 200, 108, 18); c.fillStyle = 'rgba(232,244,248,.92)'; c.fill(); c.lineWidth = 3; c.strokeStyle = '#9fb6c2'; c.stroke();
-    c.setLineDash([5, 5]); c.strokeStyle = 'rgba(120,150,165,.55)'; c.lineWidth = 1.5;
-    for (const id of SALADS) { if (G.cup.slots[id]) continue; const [x, y] = CUP_SLOTS[id]; c.beginPath(); c.ellipse(x, y, 22, 26, 0, 0, Math.PI * 2); c.stroke(); c.fillStyle = 'rgba(90,120,135,.8)'; c.font = '800 10px Nunito, sans-serif'; c.textAlign = 'center'; c.fillText(ING[id].ad, x, y + 4); }
-    c.setLineDash([]);
-    c.save(); rr(24, 46, 192, 100, 15); c.clip();
-    if (G.cup.slots.marul) { PIECE.marul(c, 66, 92, -.5, 1.3, .3); PIECE.marul(c, 78, 108, .4, 1.15, .8); PIECE.marul(c, 70, 100, 1.6, 1.05, .6); }
-    if (G.cup.slots.domates) { PIECE.domates(c, 112, 92, .2, 1.05); PIECE.domates(c, 130, 104, 1.1, 1.05); PIECE.domates(c, 116, 112, 2, 1); }
-    if (G.cup.slots.limon) { PIECE.limon(c, 166, 88, -.3, 1.1); PIECE.limon(c, 180, 106, 2.6, 1.1); }
-    c.restore();
+    for (const id of SALADS) {
+      const [x0, x1] = CUP_SECT[id];
+      c.save(); c.beginPath(); c.rect(x0, 46, x1 - x0, 100); c.clip(); rr(24, 46, 192, 100, 15); c.clip();
+      if (G.cup.slots[id]) {
+        // pack the whole compartment with a deterministic layout of pieces
+        if (!cupFill[id]) { let k = id.length * 97 + 13; const r = () => (k = (k * 1664525 + 1013904223) >>> 0) / 4294967296; const step = id === 'marul' ? 15 : id === 'limon' ? 12 : 17, pts = [];
+          for (let y = 50; y < 150; y += step * .8) for (let x = x0 + 4; x < x1 + 4; x += step) pts.push([x + (r() - .5) * 8 + ((y / step) % 2) * step / 2, y + (r() - .5) * 6, r() * 6.28, .95 + r() * .3, r()]); cupFill[id] = pts; }
+        for (const [x, y, a2, sc, k2] of cupFill[id]) PIECE[id](c, x, y, a2, id === 'marul' ? sc * 1.15 : sc, k2);
+      } else {
+        c.fillStyle = 'rgba(90,120,135,.75)'; c.font = '800 11px Nunito, sans-serif'; c.textAlign = 'center'; c.fillText(ING[id].ad, (x0 + x1) / 2, 100);
+      }
+      c.restore();
+    }
+    c.strokeStyle = 'rgba(134,161,174,.9)'; c.lineWidth = 2.5; for (const x of [88, 152]) { c.beginPath(); c.moveTo(x, 48); c.lineTo(x, 144); c.stroke(); }
     rr(20, 42, 200, 108, 18); c.fillStyle = 'rgba(255,255,255,.12)'; c.fill();
     c.strokeStyle = 'rgba(255,255,255,.85)'; c.lineWidth = 3; c.lineCap = 'round'; c.beginPath(); c.moveTo(36, 54); c.lineTo(80, 54); c.stroke();
     if (G.cup.lid) {
@@ -1596,7 +1600,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
       if (G.cup.lid) { toast('Önce kapağı aç'); return; }
       const [x, y] = evPt(e, $('#cup'), CUPW, CUPH);
       if (!G.tool || !SALADS.includes(G.tool)) {
-        for (const id of SALADS) { const [sx, sy] = CUP_SLOTS[id]; if (G.cup.slots[id] && Math.abs(x - sx) < 26 && Math.abs(y - sy) < 30) { delete G.cup.slots[id]; drawCup(); toast(`${ING[id].ad} çıkarıldı`); return; } }
+        for (const id of SALADS) { const [x0, x1] = CUP_SECT[id]; if (G.cup.slots[id] && x >= x0 && x < x1 && y > 40 && y < 150) { delete G.cup.slots[id]; drawCup(); toast(`${ING[id].ad} çıkarıldı`); return; } }
         toast('Önce marul, domates ya da limon kutusuna dokun, sonra kaba dokun'); return;
       }
       const id = G.tool;
@@ -1666,8 +1670,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     let sal = Math.max(0, 20 - smiss.length * 8 - sextra.length * 6);
     const openLid = inCup.length && !G.cup.lid;
     if (openLid) sal = Math.max(0, sal - 6);
-    const salBad = [smiss.length && 'Eksik: ' + smiss.map(name).join(', '), sextra.length && 'Fazla: ' + sextra.map(name).join(', '), openLid && 'Kapak açık kalmış'].filter(Boolean);
-    notes.push(salBad.length ? ['İkram salata', salBad.join(' · '), false] : ['İkram salata', o.salad.length ? 'Doğru' : 'İstemedi, boş', true]);
+    const salBad = [smiss.length && 'Eksik: ' + smiss.map(name).join(', '), openLid && 'Kapak açık kalmış'].filter(Boolean);
+    notes.push(salBad.length ? ['İkram salata', salBad.join(' · '), false] : ['İkram salata', 'Tam, kapağı kapalı', true]);
     const stars = Math.max(0, Math.min(5, Math.round((itemAvg + sal) / 20)));
     return { notes, stars };
   }
