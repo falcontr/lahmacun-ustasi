@@ -521,7 +521,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
   // ================= Voice: customers speak their order aloud (browser Turkish speech) =================
   const Voice = (() => {
     const ok = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
-    let voices = [];
+    let voices = [], current = null, unlocked = false;
     const load = () => { try { voices = speechSynthesis.getVoices().filter(v => /^tr/i.test(v.lang)); } catch (e) {} };
     if (ok) { load(); try { speechSynthesis.addEventListener('voiceschanged', load); } catch (e) {} }
     return {
@@ -530,9 +530,9 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
       speak(text, c) {
         if (!this.on || !c) return;
         try {
-          speechSynthesis.cancel();
           const u = new SpeechSynthesisUtterance(text);
           u.lang = 'tr-TR';
+          if (!voices.length) load();
           if (voices.length) {
             const fem = voices.find(v => /yelda|filiz|seda|emel|female|kadın/i.test(v.name));
             const male = voices.find(v => /cem|tolga|ahmet|male|erkek/i.test(v.name) && !/female/i.test(v.name));
@@ -540,17 +540,26 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
           }
           u.pitch = c.age === 'kid' ? 1.6 : c.g === 'f' ? (c.age === 'old' ? 1.05 : 1.25) : (c.age === 'old' ? .7 : .88);
           u.rate = c.age === 'old' ? .9 : 1.02;
+          u.volume = 1;
           u.onstart = () => Music.duck(true);
-          u.onend = u.onerror = () => Music.duck(false);
-          speechSynthesis.speak(u);
+          u.onend = u.onerror = () => { Music.duck(false); if (current === u) current = null; };
+          current = u; // keep a reference so Chrome doesn't drop it mid-sentence
+          const go = () => { try { speechSynthesis.resume(); speechSynthesis.speak(u); } catch (e) {} };
+          // Chrome swallows an utterance queued in the same tick as cancel(), so wait a moment after cancelling
+          if (speechSynthesis.speaking || speechSynthesis.pending) { speechSynthesis.cancel(); setTimeout(go, 120); } else go();
         } catch (e) {}
+      },
+      unlock() {
+        if (unlocked || !ok) return;
+        unlocked = true;
+        try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; u.lang = 'tr-TR'; speechSynthesis.speak(u); } catch (e) {}
       },
       stop() { try { speechSynthesis.cancel(); } catch (e) {} Music.duck(false); },
     };
   })();
   function renderVoiceBtn() { const b = document.getElementById('voiceBtn'); if (!b) return; b.hidden = !Voice.ok; b.textContent = Voice.on ? 'Konuşma: açık' : 'Konuşma: kapalı'; b.setAttribute('aria-pressed', String(Voice.on)); }
   function renderMusicBtn() { const b = document.getElementById('musicBtn'); if (!b) return; b.textContent = Music.on ? `Müzik: ${Music.name}` : 'Müzik: kapalı'; b.setAttribute('aria-pressed', String(Music.on)); }
-  document.addEventListener('pointerdown', (e) => { if (!e.target.closest('#musicBtn')) Music.start(); });
+  document.addEventListener('pointerdown', (e) => { Voice.unlock(); if (!e.target.closest('#musicBtn')) Music.start(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) Music.stop(); else if (Music.on && actx) Music.start(); });
 
   // ================= Brand art =================
