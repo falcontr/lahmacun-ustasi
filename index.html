@@ -57,6 +57,11 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
 /* Front */
 .front { position: relative; background: #2b1a10; }
 .scene svg { display: block; width: 100%; height: auto; }
+.handoff { position: absolute; left: 34%; bottom: 13%; height: 29%; display: flex; align-items: flex-end; gap: 2px; transform: translateX(-50%); cursor: grab; touch-action: none; z-index: 2; filter: drop-shadow(0 8px 10px rgba(0,0,0,.35)); }
+.handoff svg { height: 100%; width: auto; display: block; pointer-events: none; }
+.handoff svg.small { height: 55%; }
+.handoff::after { content: "Müşteriye uzat ↑"; position: absolute; left: 50%; top: -30px; transform: translateX(-50%); white-space: nowrap; background: var(--leaf); color: var(--paper); font-weight: 800; font-size: .85rem; padding: 4px 10px; border-radius: 999px; animation: nudgeUp 1.1s infinite; }
+@keyframes nudgeUp { 50% { transform: translate(-50%, -6px); } }
 .talk { position: absolute; left: 61%; top: 6%; width: 36%; display: flex; flex-direction: column; gap: 10px; }
 .bubble { position: relative; background: var(--paper); border-radius: 20px; padding: 14px 18px; font-weight: 700; font-size: 1.1rem; line-height: 1.45; box-shadow: 0 6px 0 rgba(0,0,0,.18); min-height: 3em; }
 .bubble::before { content: ""; position: absolute; left: -12px; top: 30px; border: 12px solid transparent; border-right-color: var(--paper); border-left: 0; }
@@ -289,7 +294,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
   </header>
 
   <section class="front" id="front">
-    <div class="scene" id="scene"></div>
+    <div class="scene-wrap" style="position:relative"><div class="scene" id="scene"></div><div class="handoff" id="handoff" hidden aria-label="Siparişi müşteriye ver"></div></div>
     <div class="talk">
       <div class="bubble" id="bubble" aria-live="polite"></div>
       <div class="talk-btns" id="talkBtns"></div>
@@ -338,7 +343,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
             <div class="fridge"><div class="fridge-door" id="fridgeBtns"></div></div>
             <div class="tray"><span>Siparişe eklenen:</span><span id="drinkTray"></span></div>
           </div>
-          <div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="go green" id="deliverBtn">Kutuyu kapat, poşetle ve teslim et</button></div>
+          <div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="go green" id="deliverBtn">Kutuyu kapat, poşetle, müşteriye götür</button></div>
         </div>
       </div>
     </div>
@@ -1251,6 +1256,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     return true;
   }
   function newCustomer() {
+    $('#handoff').hidden = true;
     Music.next();
     G = emptyG();
     G.speech = orderText(G.order);
@@ -1292,6 +1298,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     if (!kind || kind === 'none') { b.innerHTML = ''; return; }
     const sorry = !canServe(G.order) ? `<button class="go light" data-t="sorry">Malzeme bitti, özür dile</button>` : '';
     if (kind === 'talk') b.innerHTML = `<button class="go green" data-t="ok">Tamam</button><button class="go light" data-t="again">Anlamadım, bir daha söyler misin?</button>${sorry}`;
+    if (kind === 'handoff') { b.innerHTML = `<button class="go green" data-t="give">Poşeti ver</button>`; return; }
     if (kind === 'wait') b.innerHTML = `<button class="go green" data-t="kitchen">Mutfağa dön</button><button class="go light" data-t="again">Siparişi bir daha söyler misin?</button>${sorry}`;
   }
   $('#talkBtns').addEventListener('click', (e) => {
@@ -1303,6 +1310,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
       say(pre + G.speech, G.phase === 'talk' ? 'talk' : 'wait');
     }
     if (t.dataset.t === 'sorry') sendAway();
+    if (t.dataset.t === 'give') handOver();
   });
   function sendAway() {
     S.served += 1; save(); today.stars.push(0);
@@ -1732,9 +1740,48 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
   function cupMiniSVG() {
     return `<svg viewBox="0 0 120 80" style="height:90px;width:auto"><rect x="6" y="20" width="108" height="56" rx="12" fill="rgba(232,244,248,.95)" stroke="#86a1ae" stroke-width="3"/><rect x="2" y="14" width="116" height="14" rx="6" fill="rgba(205,225,234,.9)" stroke="#86a1ae" stroke-width="3"/>${G.cup.slots.marul ? '<ellipse cx="30" cy="50" rx="18" ry="14" fill="#9fd36b"/>' : ''}${G.cup.slots.domates ? '<circle cx="60" cy="50" r="13" fill="#d93a2b"/><circle cx="60" cy="50" r="8" fill="#f27b5f"/>' : ''}${G.cup.slots.limon ? '<path d="M78 46a14 14 0 0 0 28 0z" fill="#f2d23a"/>' : ''}</svg>`;
   }
+  // Step 1 (kitchen): close the box, bag it, carry it out to the counter.
   function deliver() {
     if (!G.bagged.length) return;
     if (!useStock('paket')) return;
+    const m = $('#resultModal'), sh = $('#resultSheet');
+    sh.innerHTML = `<h2>Kutu kapatılıyor…</h2><div class="deliver-view">${boxSVG(G.bagged.length, true)}</div>`;
+    m.hidden = false; blip(250, .12, 'square', .04);
+    setTimeout(() => {
+      m.hidden = true;
+      G.phase = 'handoff';
+      showFront(false);
+      const hasCup = SALADS.some(id => G.cup.slots[id]);
+      const h = $('#handoff');
+      h.innerHTML = bagSVG(G.bagged.length, true) + (hasCup ? cupMiniSVG().replace('style="height:90px;width:auto"', 'class="small"') : '') + G.drinks.map(d => drinkSVG(d).replace('<svg ', '<svg class="small" ')).join('');
+      h.style.transform = ''; h.style.opacity = ''; h.hidden = false;
+      blip(450, .1, 'triangle');
+      say(pick(['Oo, hazır mı? Ver bakalım.', 'Ellerine sağlık, hazırsa alayım.', 'Hah, kokusu buraya geldi!']), 'handoff');
+    }, reduced ? 300 : 1000);
+  }
+  // Step 2 (front counter): hand the bag over the counter where the customer ordered.
+  let handing = false;
+  function handOver() {
+    if (handing || G.phase !== 'handoff') return;
+    handing = true;
+    const h = $('#handoff');
+    blip(520, .08, 'triangle');
+    if (!reduced && h.animate) h.animate([{ transform: h.style.transform || 'translateX(-50%)', opacity: 1 }, { transform: 'translate(-50%, -70%) scale(.55)', opacity: 0 }], { duration: 450, easing: 'ease-in', fill: 'forwards' });
+    setTimeout(() => { h.hidden = true; handing = false; finishOrder(); }, reduced ? 0 : 460);
+  }
+  function bindHandoff() {
+    const h = $('#handoff'); let st = null;
+    h.addEventListener('pointerdown', (e) => { st = { x: e.clientX, y: e.clientY }; h.setPointerCapture(e.pointerId); h.style.cursor = 'grabbing'; });
+    h.addEventListener('pointermove', (e) => { if (!st) return; const dx = e.clientX - st.x, dy = Math.min(20, e.clientY - st.y); h.style.transform = `translate(calc(-50% + ${dx}px), ${dy}px)`; });
+    const up = (e) => {
+      if (!st) return; const dx = e.clientX - st.x, dy = e.clientY - st.y; st = null; h.style.cursor = '';
+      if (dy < -40 || Math.hypot(dx, dy) < 8) handOver();
+      else h.style.transform = '';
+    };
+    h.addEventListener('pointerup', up); h.addEventListener('pointercancel', () => { st = null; h.style.transform = ''; });
+  }
+  function finishOrder() {
+    G.phase = 'done';
     const { notes, stars, drinkPay } = evaluate();
     const n = Math.min(G.bagged.length, G.order.qty);
     const pay = stars === 0 ? 0 : PRICE * n + drinkPay;
@@ -1746,22 +1793,15 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
       : stars >= 4 ? pick(['Güzel olmuş, teşekkürler.', 'Fena değil, afiyetle yerim.'])
       : stars >= 2 ? pick(['Hmm, istediğim gibi olmamış ama idare eder.', 'Biraz daha dikkat et usta.'])
       : pick(['Bu ne böyle? Parasını vermem!', 'Ben bunu istememiştim ki!']);
-    const m = $('#resultModal'), sh = $('#resultSheet');
-    const hasCup = SALADS.some(id => G.cup.slots[id]);
-    sh.innerHTML = `<h2>Kutu kapatılıyor…</h2><div class="deliver-view">${boxSVG(G.bagged.length, true)}</div>`;
-    m.hidden = false; blip(250, .12, 'square', .04);
+    S.money += pay + tip; S.served += 1; save();
+    today.earn += pay + tip; today.stars.push(stars);
+    if (stars >= 4) chime(); else blip(200, .25, 'sawtooth', .04);
+    renderHud(); setMood(mood);
+    $('#bubble').innerHTML = `<b>${esc(G.c.name)}</b>${esc(line)}`; setTalkBtns('none'); Voice.speak(line, G.c);
+    const mp = $('#moneyPill'); mp.classList.remove('bump'); void mp.offsetWidth; mp.classList.add('bump');
+    const dayOver = S.served >= PER_DAY;
+    const sh = $('#resultSheet');
     setTimeout(() => {
-      sh.innerHTML = `<h2>Kutu poşete kondu</h2><div class="deliver-view">${bagSVG(G.bagged.length, true)}${hasCup ? cupMiniSVG() : ''}${G.drinks.map(d => drinkSVG(d).replace('<svg ', '<svg style="height:110px" ')).join('')}</div>`;
-      blip(450, .1, 'triangle');
-    }, reduced ? 300 : 1000);
-    setTimeout(() => {
-      S.money += pay + tip; S.served += 1; save();
-      today.earn += pay + tip; today.stars.push(stars);
-      if (stars >= 4) chime(); else blip(200, .25, 'sawtooth', .04);
-      showFront(false); setMood(mood);
-      $('#bubble').innerHTML = `<b>${esc(G.c.name)}</b>${esc(line)}`; setTalkBtns('none'); Voice.speak(line, G.c);
-      const mp = $('#moneyPill'); mp.classList.remove('bump'); void mp.offsetWidth; mp.classList.add('bump');
-      const dayOver = S.served >= PER_DAY;
       sh.innerHTML = `
         <div class="result-head"><div class="face">${customerSVG(G.c, mood)}</div>
           <div style="display:flex;flex-direction:column;gap:6px;min-width:0"><h2>${esc(G.c.name)}</h2>
@@ -1771,9 +1811,10 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
         <div class="earn">${pay ? `+${pay} ₺` : 'Para vermedi'}${pay && drinkPay ? ` <small style="font-size:.9rem;color:var(--ink-soft)">(içecek ${drinkPay} ₺)</small>` : ''}${tip ? ` · ${tip} ₺ bahşiş` : ''}</div>
         ${G.repeats >= 2 ? '<p>Siparişi çok tekrar ettirdin, bahşiş azaldı.</p>' : ''}
         <button class="go" id="nextBtn">${dayOver ? 'Günü bitir' : 'Sıradaki müşteri'}</button>`;
+      $('#resultModal').hidden = false;
       $('#nextBtn').focus();
       $('#nextBtn').onclick = () => dayOver ? showDayEnd() : nextCustomer();
-    }, reduced ? 600 : 2100);
+    }, reduced ? 200 : 1400);
   }
   function nextCustomer() {
     $('#resultModal').hidden = true;
@@ -2065,6 +2106,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
 
   // ================= Boot =================
   buildKitchen();
+  bindHandoff();
   renderHud();
   if (!S.setup) { G = emptyG(); drawScene('neutral'); $('#bubble').innerHTML = '<b>Hoş geldin!</b>Dükkanını açınca ilk müşterin gelecek.'; openSetup(); }
   else {
