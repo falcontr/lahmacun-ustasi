@@ -221,6 +221,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     <span class="pill" id="custPill"></span>
     <span class="pill money" id="moneyPill"></span>
     <button class="hud-btn" id="musicBtn" aria-pressed="true"></button>
+    <button class="hud-btn" id="voiceBtn" aria-pressed="true"></button>
     <button class="hud-btn" id="stockBtn">Pazar</button>
     <button class="hud-btn" id="decorBtn">Dükkanı güzelleştir</button>
   </header>
@@ -391,30 +392,45 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
   }
   const chime = () => { blip(660, .12); setTimeout(() => blip(880, .16), 110); setTimeout(() => blip(1100, .2), 230); };
 
-  // ================= Music: original tune in Hicaz on D, 9/8 karşılama rhythm (saz + darbuka + drone) =================
+  // ================= Music: original Turkish-style tunes, a new one composed for every customer =================
   const Music = (() => {
-    const EIGHTH = 0.19;
-    const HICAZ = [0, 1, 4, 5, 7, 8, 10, 12, 13, 16];
-    // [scale degree or null, length in eighths]; every bar = 9 eighths (2+2+2+3)
-    const TUNE = [
-      [[4, 2], [5, 2], [4, 2], [3, 3]], [[2, 2], [3, 1], [2, 1], [1, 2], [0, 3]],
-      [[0, 2], [2, 2], [3, 2], [4, 3]], [[5, 2], [4, 1], [5, 1], [4, 2], [null, 3]],
-      [[7, 2], [6, 2], [5, 2], [4, 3]], [[5, 2], [4, 1], [3, 1], [2, 2], [3, 3]],
-      [[2, 2], [1, 2], [2, 2], [3, 3]], [[1, 2], [0, 2], [0, 2], [null, 3]],
-      [[4, 1], [4, 1], [5, 2], [7, 2], [8, 3]], [[7, 2], [5, 2], [4, 2], [5, 3]],
-      [[4, 2], [3, 1], [4, 1], [5, 2], [4, 3]], [[3, 2], [2, 2], [1, 2], [2, 3]],
-      [[0, 2], [2, 2], [4, 2], [7, 3]], [[6, 2], [5, 2], [4, 2], [3, 3]],
-      [[2, 2], [3, 2], [1, 2], [2, 3]], [[1, 2], [0, 2], [0, 2], [null, 3]],
+    const SCALE = {
+      hicaz: [0, 1, 4, 5, 7, 8, 10, 12, 13, 16],
+      rast:  [0, 2, 4, 5, 7, 9, 10, 12, 14, 16],
+      ussak: [0, 2, 3, 5, 7, 8, 10, 12, 14, 15],
+      kurdi: [0, 1, 3, 5, 7, 8, 10, 12, 13, 15],
+    };
+    // meter: groups of eighths per bar; drum: one letter per eighth (D düm, T tek, k soft tek, B davul, t davul stick)
+    const SONGS = [
+      { name: 'Hicaz Karşılama', scale: 'hicaz', root: 293.66, meter: [2, 2, 2, 3], eighth: .19, inst: 'saz', drum: 'D.TkD.TkT', busy: 'k' },
+      { name: 'Roman Havası', scale: 'hicaz', root: 220, meter: [2, 2, 2, 3], eighth: .16, inst: 'klarnet', drum: 'D.T.D.TTT', busy: 'k' },
+      { name: 'Çiftetelli', scale: 'rast', root: 196, meter: [2, 2, 2, 2], eighth: .17, inst: 'klarnet', drum: 'D.TTD.T.', busy: 'k' },
+      { name: 'Karadeniz Horonu', scale: 'ussak', root: 293.66, meter: [2, 2, 3], eighth: .125, inst: 'kemence', drum: 'DkTkDkT', busy: '' },
+      { name: 'Halay', scale: 'kurdi', root: 261.63, meter: [2, 2, 2, 2], eighth: .2, inst: 'zurna', drum: 'B..tB.t.', busy: 't' },
     ];
-    const DRUM = ['D', '', 'T', 'k', 'D', '', 'T', 'k', 'T'];
     let ctx = null, master = null, noise = null, timer = null, nextT = 0, bar = 0, intense = false;
-    const freq = (deg, oct = 0) => 293.66 * Math.pow(2, (HICAZ[deg] + oct * 12) / 12);
+    let song = SONGS[0], tune = null, songIdx = 0;
+    function rng(seed) { let x = seed >>> 0 || 1; return () => (x = (x * 1664525 + 1013904223) >>> 0) / 4294967296; }
+    function compose(sg, seed) {
+      const r = rng(seed), n = SCALE[sg.scale].length, top = n - 1;
+      const clamp = (v) => Math.max(0, Math.min(top, v));
+      const rhythm = () => sg.meter.flatMap(g => g === 2 ? (r() < .55 ? [1, 1] : [2]) : (r() < .4 ? [3] : r() < .7 ? [2, 1] : [1, 1, 1]));
+      const step = () => { const x = r(); return x < .35 ? 1 : x < .7 ? -1 : x < .8 ? 2 : x < .9 ? -2 : 0; };
+      let cur = 3 + Math.floor(r() * 3);
+      const makeBar = (target) => { const rh = rhythm(); return rh.map((len, i) => { cur = (i === rh.length - 1 && target !== undefined) ? target : clamp(cur + step()); return [cur, len, r() < .25]; }); };
+      const shift = (b, d) => b.map(([deg, len, gr]) => [clamp(deg + d), len, gr]);
+      const A = makeBar(), B = makeBar(), C = makeBar(4), A2 = makeBar(), D = makeBar(0);
+      const lift = r() < .5 ? 2 : 1;
+      return [A, B, shift(A, lift), C, A2, B, shift(A2, -1), D];
+    }
+    const freq = (deg) => song.root * Math.pow(2, SCALE[song.scale][deg] / 12);
     function setup() {
       ctx = actx = actx || new (window.AudioContext || window.webkitAudioContext)();
       master = ctx.createGain(); master.gain.value = 0.0001; master.connect(ctx.destination);
       noise = ctx.createBuffer(1, ctx.sampleRate * .3, ctx.sampleRate);
       const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     }
+    function env(g, t, a, vol, dur) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + a); g.gain.setValueAtTime(vol, Math.max(t + a, t + dur - .06)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); }
     function pluck(f, t, dur, vol) {
       const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
       o1.type = 'sawtooth'; o2.type = 'triangle'; o1.frequency.value = f; o2.frequency.value = f * 2.003;
@@ -423,47 +439,59 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
       o1.connect(lp); o2.connect(lp); lp.connect(g); g.connect(master);
       o1.start(t); o2.start(t); o1.stop(t + dur + .02); o2.stop(t + dur + .02);
     }
-    function note(deg, t, len) {
-      const dur = len * EIGHTH;
-      if (len >= 3) { for (let x = 0; x < dur - .05; x += .075) pluck(freq(deg), t + x, .12, x ? .07 : .16); }
-      else pluck(freq(deg), t, dur * .95, .15);
+    function wind(f, t, dur, kind) {
+      const types = { klarnet: ['square', 'triangle', 2400, .08, .03], zurna: ['sawtooth', 'square', 4200, .07, .015], kemence: ['sawtooth', 'sawtooth', 3000, .075, .04] }[kind];
+      const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain();
+      o1.type = types[0]; o2.type = types[1]; o1.frequency.value = f; o2.frequency.value = f * (kind === 'kemence' ? 1.004 : 2);
+      lfo.frequency.value = kind === 'kemence' ? 6.5 : 5.5; lg.gain.value = f * .012; lfo.connect(lg); lg.connect(o1.frequency); lg.connect(o2.frequency);
+      lp.type = 'lowpass'; lp.frequency.value = types[2]; lp.Q.value = kind === 'zurna' ? 4 : 1;
+      env(g, t, types[4], types[3], dur);
+      o1.connect(lp); o2.connect(lp); lp.connect(g); g.connect(master);
+      for (const o of [o1, o2, lfo]) { o.start(t); o.stop(t + dur + .03); }
+    }
+    function note(deg, t, len, grace) {
+      const dur = len * song.eighth, f = freq(deg);
+      if (grace && len >= 2 && deg < SCALE[song.scale].length - 1) { const gf = freq(deg + 1); if (song.inst === 'saz') pluck(gf, t, .06, .1); else wind(gf, t, .06, song.inst); t += .05; }
+      if (song.inst === 'saz') {
+        if (len >= 3) { for (let x = 0; x < dur - .05; x += .075) pluck(f, t + x, .12, x ? .07 : .16); }
+        else pluck(f, t, dur * .95, .15);
+      } else wind(f, t, dur * .96, song.inst);
     }
     function drum(kind, t) {
-      if (kind === 'D') {
-        const o = ctx.createOscillator(), g = ctx.createGain();
-        o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(55, t + .25);
-        g.gain.setValueAtTime(.55, t); g.gain.exponentialRampToValueAtTime(0.0001, t + .32);
-        o.connect(g); g.connect(master); o.start(t); o.stop(t + .35);
+      if (kind === 'D' || kind === 'B') {
+        const big = kind === 'B', o = ctx.createOscillator(), g = ctx.createGain();
+        o.frequency.setValueAtTime(big ? 110 : 150, t); o.frequency.exponentialRampToValueAtTime(big ? 42 : 55, t + (big ? .35 : .25));
+        g.gain.setValueAtTime(big ? .8 : .55, t); g.gain.exponentialRampToValueAtTime(0.0001, t + (big ? .45 : .32));
+        o.connect(g); g.connect(master); o.start(t); o.stop(t + .5);
       } else {
         const s = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), g = ctx.createGain();
-        s.buffer = noise; bp.type = 'bandpass'; bp.frequency.value = kind === 'T' ? 3400 : 5200; bp.Q.value = 1.2;
-        const v = kind === 'T' ? .32 : .13;
-        g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + (kind === 'T' ? .08 : .05));
+        s.buffer = noise; bp.type = 'bandpass'; bp.frequency.value = kind === 'T' ? 3400 : kind === 't' ? 2200 : 5200; bp.Q.value = 1.2;
+        const v = kind === 'T' ? .32 : kind === 't' ? .3 : .13;
+        g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + (kind === 'k' ? .05 : .08));
         s.connect(bp); bp.connect(g); g.connect(master); s.start(t); s.stop(t + .1);
       }
     }
-    function drone(t) {
-      for (const [f, v] of [[73.42, .09], [110, .05]]) {
+    function drone(t, len) {
+      for (const [m, v] of [[.25, .08], [.375, .045]]) {
         const o = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
-        o.type = 'sawtooth'; o.frequency.value = f; lp.type = 'lowpass'; lp.frequency.value = 420;
-        const end = t + 9 * EIGHTH;
-        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + .08); g.gain.setValueAtTime(v, end - .15); g.gain.exponentialRampToValueAtTime(0.0001, end);
-        o.connect(lp); lp.connect(g); g.connect(master); o.start(t); o.stop(end + .02);
+        o.type = 'sawtooth'; o.frequency.value = song.root * m; lp.type = 'lowpass'; lp.frequency.value = 420;
+        env(g, t, .08, v, len); o.connect(lp); lp.connect(g); g.connect(master); o.start(t); o.stop(t + len + .02);
       }
     }
     function scheduleBar(t) {
-      drone(t);
-      DRUM.forEach((k, i) => { if (k) drum(k, t + i * EIGHTH); });
-      if (intense) for (let i = 0; i < 9; i++) if (!DRUM[i]) drum('k', t + i * EIGHTH);
+      const e = song.eighth, steps = song.drum.length;
+      drone(t, steps * e);
+      for (let i = 0; i < steps; i++) { const k = song.drum[i]; if (k !== '.') drum(k, t + i * e); else if (intense && song.busy) drum(song.busy, t + i * e); }
       let x = 0;
-      for (const [deg, len] of TUNE[bar % TUNE.length]) { if (deg !== null) note(deg, t + x * EIGHTH, len); x += len; }
+      for (const [deg, len, grace] of tune[bar % tune.length]) { note(deg, t + x * e, len, grace); x += len; }
       bar++;
     }
-    function tick() {
-      while (nextT < ctx.currentTime + .4) { scheduleBar(nextT); nextT += 9 * EIGHTH; }
-    }
+    function tick() { while (nextT < ctx.currentTime + .4) { const b = song.drum.length * song.eighth; scheduleBar(nextT); nextT += b; } }
+    function choose(seed) { songIdx = (songIdx + 1 + Math.floor(Math.random() * (SONGS.length - 1))) % SONGS.length; song = SONGS[songIdx]; tune = compose(song, seed); bar = 0; }
+    tune = compose(song, 7);
     return {
       get on() { return S.music !== false; },
+      get name() { return song.name; },
       start() {
         if (S.music === false || timer) return;
         try {
@@ -480,10 +508,48 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
         clearInterval(timer); timer = null;
         try { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setValueAtTime(master.gain.value, ctx.currentTime); master.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + .3); } catch (e) {}
       },
+      next() {
+        choose((Date.now() & 0xffffff) + 1);
+        if (timer && ctx) { nextT = Math.max(ctx.currentTime + .15, Math.min(nextT, ctx.currentTime + .4)); }
+        renderMusicBtn();
+      },
       setIntense(v) { intense = v; },
+      duck(v) { if (!timer || !ctx) return; try { const g = master.gain, n = ctx.currentTime; g.cancelScheduledValues(n); g.setValueAtTime(Math.max(.0001, g.value), n); g.exponentialRampToValueAtTime(v ? .06 : .22, n + .25); } catch (e) {} },
     };
   })();
-  function renderMusicBtn() { const b = document.getElementById('musicBtn'); if (!b) return; b.textContent = Music.on ? 'Müzik: açık' : 'Müzik: kapalı'; b.setAttribute('aria-pressed', String(Music.on)); }
+
+  // ================= Voice: customers speak their order aloud (browser Turkish speech) =================
+  const Voice = (() => {
+    const ok = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+    let voices = [];
+    const load = () => { try { voices = speechSynthesis.getVoices().filter(v => /^tr/i.test(v.lang)); } catch (e) {} };
+    if (ok) { load(); try { speechSynthesis.addEventListener('voiceschanged', load); } catch (e) {} }
+    return {
+      get ok() { return ok; },
+      get on() { return ok && S.voice !== false; },
+      speak(text, c) {
+        if (!this.on || !c) return;
+        try {
+          speechSynthesis.cancel();
+          const u = new SpeechSynthesisUtterance(text);
+          u.lang = 'tr-TR';
+          if (voices.length) {
+            const fem = voices.find(v => /yelda|filiz|seda|emel|female|kadın/i.test(v.name));
+            const male = voices.find(v => /cem|tolga|ahmet|male|erkek/i.test(v.name) && !/female/i.test(v.name));
+            u.voice = (c.g === 'f' || c.age === 'kid') ? (fem || voices[0]) : (male || voices[0]);
+          }
+          u.pitch = c.age === 'kid' ? 1.6 : c.g === 'f' ? (c.age === 'old' ? 1.05 : 1.25) : (c.age === 'old' ? .7 : .88);
+          u.rate = c.age === 'old' ? .9 : 1.02;
+          u.onstart = () => Music.duck(true);
+          u.onend = u.onerror = () => Music.duck(false);
+          speechSynthesis.speak(u);
+        } catch (e) {}
+      },
+      stop() { try { speechSynthesis.cancel(); } catch (e) {} Music.duck(false); },
+    };
+  })();
+  function renderVoiceBtn() { const b = document.getElementById('voiceBtn'); if (!b) return; b.hidden = !Voice.ok; b.textContent = Voice.on ? 'Konuşma: açık' : 'Konuşma: kapalı'; b.setAttribute('aria-pressed', String(Voice.on)); }
+  function renderMusicBtn() { const b = document.getElementById('musicBtn'); if (!b) return; b.textContent = Music.on ? `Müzik: ${Music.name}` : 'Müzik: kapalı'; b.setAttribute('aria-pressed', String(Music.on)); }
   document.addEventListener('pointerdown', (e) => { if (!e.target.closest('#musicBtn')) Music.start(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) Music.stop(); else if (Music.on && actx) Music.start(); });
 
@@ -1034,6 +1100,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     return true;
   }
   function newCustomer() {
+    Music.next();
     G = emptyG();
     G.speech = orderText(G.order);
     showFront(true);
@@ -1057,14 +1124,16 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     setTalkBtns(null);
     let i = 0;
     const done = () => { clearInterval(sayTimer); el.innerHTML = head + esc(text); setMood('neutral'); setTalkBtns(buttons); };
+    Voice.speak(text, G.c);
     if (reduced) { done(); return; }
     setMood('talk'); el.innerHTML = head;
     let m = false;
+    const voiced = Voice.on, stepN = voiced ? 1 : 2;
     sayTimer = setInterval(() => {
-      i += 2; el.innerHTML = head + esc(text.slice(0, i));
-      if (i % 6 === 0) { m = !m; setMood(m ? 'talk' : 'neutral'); blip(300 + Math.random() * 200, .03, 'triangle', .02); }
+      i += stepN; el.innerHTML = head + esc(text.slice(0, i));
+      if (i % 6 === 0 || (voiced && i % 3 === 0)) { m = !m; setMood(m ? 'talk' : 'neutral'); if (!voiced) blip(300 + Math.random() * 200, .03, 'triangle', .02); }
       if (i >= text.length) done();
-    }, 28);
+    }, voiced ? 58 : 28);
     el.onclick = () => { if (i < text.length) { i = text.length; done(); } };
   }
   function setTalkBtns(kind) {
@@ -1086,7 +1155,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
   });
   function sendAway() {
     S.served += 1; save(); today.stars.push(0);
-    setMood('sad'); $('#bubble').innerHTML = `<b>${esc(G.c.name)}</b>Hay aksi! Başka zaman gelirim o zaman.`; setTalkBtns('none');
+    setMood('sad'); $('#bubble').innerHTML = `<b>${esc(G.c.name)}</b>Hay aksi! Başka zaman gelirim o zaman.`; setTalkBtns('none'); Voice.speak('Hay aksi! Başka zaman gelirim o zaman.', G.c);
     const dayOver = S.served >= PER_DAY;
     setTimeout(() => {
       $('#resultSheet').innerHTML = `<h2>Müşteri eli boş gitti</h2><p>Stok yetmediği için sipariş hazırlanamadı. Üstteki Pazar düğmesinden her gün malzeme alabilirsin.</p><button class="go" id="nextBtn">${dayOver ? 'Günü bitir' : 'Sıradaki müşteri'}</button>`;
@@ -1508,7 +1577,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
       today.earn += pay + tip; today.stars.push(stars);
       if (stars >= 4) chime(); else blip(200, .25, 'sawtooth', .04);
       showFront(false); setMood(mood);
-      $('#bubble').innerHTML = `<b>${esc(G.c.name)}</b>${esc(line)}`; setTalkBtns('none');
+      $('#bubble').innerHTML = `<b>${esc(G.c.name)}</b>${esc(line)}`; setTalkBtns('none'); Voice.speak(line, G.c);
       const mp = $('#moneyPill'); mp.classList.remove('bump'); void mp.offsetWidth; mp.classList.add('bump');
       const dayOver = S.served >= PER_DAY;
       sh.innerHTML = `
@@ -1588,13 +1657,14 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
   $('#stockBtn').addEventListener('click', () => openMarket());
 
   // ================= HUD =================
+  $('#voiceBtn').addEventListener('click', () => { S.voice = !Voice.on; save(); if (!Voice.on) Voice.stop(); renderVoiceBtn(); });
   $('#musicBtn').addEventListener('click', () => {
     S.music = !Music.on; save();
     if (Music.on) Music.start(); else Music.stop();
     renderMusicBtn();
   });
   function renderHud() {
-    renderMusicBtn();
+    renderMusicBtn(); renderVoiceBtn();
     $('#brandBtn').innerHTML = logoBadge(S.logo, S.color, 34) + `<span>${esc(S.brand)}</span>`;
     const dp = $('#dayPill'); dp.textContent = `${GUNLER[weekday()]} · ${S.day}. gün`;
     $('#custPill').textContent = 'Müşteri ' + Math.min(PER_DAY, S.served + 1) + '/' + PER_DAY;
