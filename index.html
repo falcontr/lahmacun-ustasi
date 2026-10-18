@@ -354,7 +354,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
   <section class="bazaar" id="bazaar" hidden>
     <div class="bz-head" id="bzHead"></div>
     <div class="bz-bar gutter"><h2 id="bzTitle"></h2><span class="pill money" id="bzMoney"></span></div>
-    <p class="bz-note gutter">Tezgahlardan istediğini al. Pazar sadece Salı, Perşembe ve Pazar sabahları kurulur, sonraki pazara kadar yetecek kadar al.</p>
+    <p class="bz-note gutter">Tezgahlardan istediğini al. Pazar her sabah kurulur.</p>
     <div class="stalls gutter" id="stalls"></div>
     <div class="bz-foot gutter"><button class="go teal" id="bzBack">Alışverişi bitir, dükkana dön</button></div>
   </section>
@@ -497,100 +497,109 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
 
   // ================= Music: original Turkish-style tunes, a new one composed for every customer =================
   const Music = (() => {
-    const SCALE = {
-      hicaz: [0, 1, 4, 5, 7, 8, 10, 12, 13, 16],
-      rast:  [0, 2, 4, 5, 7, 9, 10, 12, 14, 16],
-      ussak: [0, 2, 3, 5, 7, 8, 10, 12, 14, 15],
-      kurdi: [0, 1, 3, 5, 7, 8, 10, 12, 13, 15],
-    };
-    // meter: groups of eighths per bar; drum: one letter per eighth (D düm, T tek, k soft tek, B davul, t davul stick)
+    // 7-note scales (semitones); melodies index into them across octaves
+    const SCALE = { major: [0, 2, 4, 5, 7, 9, 11], rast: [0, 2, 4, 5, 7, 9, 10], hicaz: [0, 1, 4, 5, 7, 8, 10], ussak: [0, 2, 3, 5, 7, 8, 10] };
+    // prog: chord root per bar (scale degree index); drum: one char per eighth (K kick, S snare, h hat, . rest)
     const SONGS = [
-      { name: 'Antep Karşılaması', scale: 'hicaz', root: 293.66, meter: [2, 2, 2, 3], eighth: .15, inst: 'zurna', drum: 'B.tBB.t.t', busy: 't' },
-      { name: 'Gaziantep Oyun Havası', scale: 'ussak', root: 293.66, meter: [2, 2, 2, 3], eighth: .155, inst: 'klarnet', drum: 'D.TkD.TkT', busy: 'k' },
-      { name: 'Bağlama Karşılaması', scale: 'hicaz', root: 293.66, meter: [2, 2, 2, 3], eighth: .16, inst: 'saz', drum: 'D.TkD.TkT', busy: 'k' },
-      { name: 'Kilis Oyun Havası', scale: 'kurdi', root: 329.63, meter: [2, 2, 2, 3], eighth: .15, inst: 'klarnet', drum: 'D.T.D.TTT', busy: 'k' },
-      { name: 'Urfa Karşılaması', scale: 'ussak', root: 261.63, meter: [2, 2, 2, 3], eighth: .16, inst: 'zurna', drum: 'B.tB..tBt', busy: 't' },
-      { name: 'Davul Zurna Oyun Havası', scale: 'rast', root: 293.66, meter: [2, 2, 2, 3], eighth: .145, inst: 'zurna', drum: 'B.tBB.tBt', busy: 't' },
+      { name: 'Çarşı Neşesi', scale: 'major', root: 261.63, eighth: .16, lead: 'marimba', prog: [0, 5, 3, 4], drum: 'K.h.S.hK' },
+      { name: 'Tezgah Dansı', scale: 'rast', root: 293.66, eighth: .15, lead: 'saz', prog: [0, 3, 4, 0], drum: 'K.hKS.h.' },
+      { name: 'Sabah Pazarı', scale: 'major', root: 349.23, eighth: .17, lead: 'bell', prog: [0, 4, 5, 3], drum: 'K.h.S.h.' },
+      { name: 'Fırın Başında', scale: 'hicaz', root: 293.66, eighth: .16, lead: 'klarnet', prog: [0, 1, 0, 6], drum: 'K.hKS.hh' },
+      { name: 'Usta Marşı', scale: 'major', root: 392, eighth: .15, lead: 'marimba', prog: [0, 3, 0, 4], drum: 'K.hKS.hS' },
+      { name: 'Akşam Sefası', scale: 'ussak', root: 293.66, eighth: .19, lead: 'saz', prog: [0, 6, 5, 4], drum: 'K...S..h' },
     ];
     let ctx = null, master = null, noise = null, timer = null, nextT = 0, bar = 0, intense = false, held = false;
     let song = SONGS[0], tune = null, songIdx = 0;
     function rng(seed) { let x = seed >>> 0 || 1; return () => (x = (x * 1664525 + 1013904223) >>> 0) / 4294967296; }
+    const f7 = (i) => { const sc = SCALE[song.scale], o = Math.floor(i / 7), d = ((i % 7) + 7) % 7; return song.root * Math.pow(2, (sc[d] + 12 * o) / 12); };
+    // A catchy 8-bar tune: motif A returns on bars 1, 3, 5, 7 fitted to each chord; strong beats land on chord tones.
     function compose(sg, seed) {
-      const r = rng(seed), n = SCALE[sg.scale].length, top = n - 1;
-      const clamp = (v) => Math.max(0, Math.min(top, v));
-      const rhythm = () => sg.meter.flatMap(g => g === 2 ? (r() < .55 ? [1, 1] : [2]) : (r() < .4 ? [3] : r() < .7 ? [2, 1] : [1, 1, 1]));
-      const step = () => { const x = r(); return x < .35 ? 1 : x < .7 ? -1 : x < .8 ? 2 : x < .9 ? -2 : 0; };
-      let cur = 3 + Math.floor(r() * 3);
-      const makeBar = (target) => { const rh = rhythm(); return rh.map((len, i) => { cur = (i === rh.length - 1 && target !== undefined) ? target : clamp(cur + step()); return [cur, len, r() < .25]; }); };
-      const shift = (b, d) => b.map(([deg, len, gr]) => [clamp(deg + d), len, gr]);
-      const A = makeBar(), B = makeBar(), C = makeBar(4), A2 = makeBar(), D = makeBar(0);
-      const lift = r() < .5 ? 2 : 1;
-      return [A, B, shift(A, lift), C, A2, B, shift(A2, -1), D];
+      const r = rng(seed);
+      const rhythms = [[2, 1, 1, 2, 2], [1, 1, 2, 1, 1, 2], [2, 2, 1, 1, 2], [3, 1, 2, 2], [1, 1, 1, 1, 2, 2]];
+      const RA = rhythms[Math.floor(r() * rhythms.length)], RB = rhythms[Math.floor(r() * rhythms.length)];
+      const shapeA = RA.map(() => Math.floor(r() * 5) - 2), shapeB = RB.map(() => Math.floor(r() * 5) - 2);
+      const bars = [];
+      let prev = 9;
+      for (let b = 0; b < 8; b++) {
+        const c = sg.prog[b % 4] + 7, tones = [c, c + 2, c + 4, c + 7];
+        const last = b === 7, cad = b === 3;
+        const rh = last ? [2, 2, 4] : cad ? [2, 2, 4] : (b % 2 === 0 ? RA : RB);
+        const shape = b % 2 === 0 ? shapeA : shapeB;
+        let x = 0; const notes = [];
+        rh.forEach((len, i) => {
+          let deg;
+          if (x % 4 === 0) deg = tones.reduce((best, t) => Math.abs(t - prev) < Math.abs(best - prev) ? t : best, tones[0]);
+          else deg = prev + (shape[i] || (r() < .5 ? 1 : -1));
+          if (last && i === rh.length - 1) deg = 7;
+          deg = Math.max(5, Math.min(15, deg));
+          notes.push([deg, len, r() < .15]); prev = deg; x += len;
+        });
+        bars.push({ chord: sg.prog[b % 4], notes });
+      }
+      return bars;
     }
-    const freq = (deg) => song.root * Math.pow(2, SCALE[song.scale][deg] / 12);
     function setup() {
       ctx = actx = actx || new (window.AudioContext || window.webkitAudioContext)();
       master = ctx.createGain(); master.gain.value = 0.0001; master.connect(ctx.destination);
       noise = ctx.createBuffer(1, ctx.sampleRate * .3, ctx.sampleRate);
       const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     }
-    function env(g, t, a, vol, dur) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + a); g.gain.setValueAtTime(vol, Math.max(t + a, t + dur - .06)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); }
-    function pluck(f, t, dur, vol) {
-      const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
-      o1.type = 'sawtooth'; o2.type = 'triangle'; o1.frequency.value = f; o2.frequency.value = f * 2.003;
-      lp.type = 'lowpass'; lp.frequency.setValueAtTime(3200, t); lp.frequency.exponentialRampToValueAtTime(900, t + dur); lp.Q.value = 2;
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      o1.connect(lp); o2.connect(lp); lp.connect(g); g.connect(master);
-      o1.start(t); o2.start(t); o1.stop(t + dur + .02); o2.stop(t + dur + .02);
+    function tone(type, f, t, dur, vol, attack = .005, filt = 0) {
+      const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      if (filt) { const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = filt; o.connect(lp); lp.connect(g); } else o.connect(g);
+      g.connect(master); o.start(t); o.stop(t + dur + .03);
     }
-    function wind(f, t, dur, kind) {
-      const types = { klarnet: ['square', 'triangle', 2400, .08, .03], zurna: ['sawtooth', 'square', 4200, .07, .015], kemence: ['sawtooth', 'sawtooth', 3000, .075, .04] }[kind];
-      const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain();
-      o1.type = types[0]; o2.type = types[1]; o1.frequency.value = f; o2.frequency.value = f * (kind === 'kemence' ? 1.004 : 2);
-      lfo.frequency.value = kind === 'kemence' ? 6.5 : 5.5; lg.gain.value = f * .012; lfo.connect(lg); lg.connect(o1.frequency); lg.connect(o2.frequency);
-      lp.type = 'lowpass'; lp.frequency.value = types[2]; lp.Q.value = kind === 'zurna' ? 4 : 1;
-      env(g, t, types[4], types[3], dur);
-      o1.connect(lp); o2.connect(lp); lp.connect(g); g.connect(master);
-      for (const o of [o1, o2, lfo]) { o.start(t); o.stop(t + dur + .03); }
-    }
-    function note(deg, t, len, grace) {
-      const dur = len * song.eighth, f = freq(deg);
-      if (grace && len >= 2 && deg < SCALE[song.scale].length - 1) { const gf = freq(deg + 1); if (song.inst === 'saz') pluck(gf, t, .06, .1); else wind(gf, t, .06, song.inst); t += .05; }
-      if (song.inst === 'saz') {
-        if (len >= 3) { for (let x = 0; x < dur - .05; x += .075) pluck(f, t + x, .12, x ? .07 : .16); }
-        else pluck(f, t, dur * .95, .15);
-      } else wind(f, t, dur * .96, song.inst);
-    }
-    function drum(kind, t) {
-      if (kind === 'D' || kind === 'B') {
-        const big = kind === 'B', o = ctx.createOscillator(), g = ctx.createGain();
-        o.frequency.setValueAtTime(big ? 110 : 150, t); o.frequency.exponentialRampToValueAtTime(big ? 42 : 55, t + (big ? .35 : .25));
-        g.gain.setValueAtTime(big ? .8 : .55, t); g.gain.exponentialRampToValueAtTime(0.0001, t + (big ? .45 : .32));
-        o.connect(g); g.connect(master); o.start(t); o.stop(t + .5);
-      } else {
-        const s = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), g = ctx.createGain();
-        s.buffer = noise; bp.type = 'bandpass'; bp.frequency.value = kind === 'T' ? 3400 : kind === 't' ? 2200 : 5200; bp.Q.value = 1.2;
-        const v = kind === 'T' ? .32 : kind === 't' ? .3 : .13;
-        g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + (kind === 'k' ? .05 : .08));
-        s.connect(bp); bp.connect(g); g.connect(master); s.start(t); s.stop(t + .1);
+    function lead(f, t, dur) {
+      switch (song.lead) {
+        case 'marimba': tone('sine', f, t, Math.min(dur, .45), .2); tone('sine', f * 4, t, .06, .05); tone('triangle', f * 2, t, .12, .04); break;
+        case 'bell': tone('sine', f * 2, t, .9, .09); tone('sine', f * 5.4, t, .25, .025); tone('triangle', f, t, Math.min(dur, .5), .08); break;
+        case 'saz': {
+          if (dur > .35) { for (let x = 0; x < dur - .05; x += .07) tone('sawtooth', f, t + x, .1, x ? .045 : .09, .004, 2600); }
+          else tone('sawtooth', f, t, dur * .95, .1, .004, 2800);
+          break;
+        }
+        default: { // soft clarinet
+          const o = ctx.createOscillator(), o2 = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain();
+          o.type = 'square'; o2.type = 'triangle'; o.frequency.value = f; o2.frequency.value = f;
+          lfo.frequency.value = 5; lg.gain.value = f * .008; lfo.connect(lg); lg.connect(o.frequency);
+          lp.type = 'lowpass'; lp.frequency.value = 1800;
+          g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(.06, t + .04); g.gain.setValueAtTime(.06, t + Math.max(.05, dur - .08)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+          o.connect(lp); o2.connect(lp); lp.connect(g); g.connect(master);
+          for (const x of [o, o2, lfo]) { x.start(t); x.stop(t + dur + .03); }
+        }
       }
     }
-    function drone(t, len) {
-      for (const [m, v] of [[.25, .08], [.375, .045]]) {
-        const o = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
-        o.type = 'sawtooth'; o.frequency.value = song.root * m; lp.type = 'lowpass'; lp.frequency.value = 420;
-        env(g, t, .08, v, len); o.connect(lp); lp.connect(g); g.connect(master); o.start(t); o.stop(t + len + .02);
+    function drum(k, t) {
+      if (k === 'K') {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(48, t + .18);
+        g.gain.setValueAtTime(.5, t); g.gain.exponentialRampToValueAtTime(0.0001, t + .25);
+        o.connect(g); g.connect(master); o.start(t); o.stop(t + .3);
+        return;
       }
+      const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      s.buffer = noise;
+      if (k === 'S') { f.type = 'bandpass'; f.frequency.value = 1900; f.Q.value = .7; g.gain.setValueAtTime(.22, t); g.gain.exponentialRampToValueAtTime(0.0001, t + .14); tone('triangle', 190, t, .08, .06); }
+      else { f.type = 'highpass'; f.frequency.value = 7000; g.gain.setValueAtTime(k === 'H' ? .09 : .06, t); g.gain.exponentialRampToValueAtTime(0.0001, t + .04); }
+      s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t + .16);
     }
     function scheduleBar(t) {
-      const e = song.eighth, steps = song.drum.length;
-      drone(t, steps * e);
-      for (let i = 0; i < steps; i++) { const k = song.drum[i]; if (k !== '.') drum(k, t + i * e); else if (intense && song.busy) drum(song.busy, t + i * e); }
+      const e = song.eighth, bt = tune[bar % tune.length], c = bt.chord;
+      // soft chord pad
+      for (const i of [c + 7, c + 9, c + 11]) tone('triangle', f7(i) / 2, t, e * 8, .022, .12, 1400);
+      // bouncy bass: root, fifth, root, approach
+      [[0, c], [3, c + 4], [4, c], [6, c + 2]].forEach(([x, d]) => tone('triangle', f7(d) / 4, t + x * e, e * 1.6, .16, .006, 900));
+      for (let i = 0; i < 8; i++) { const k = song.drum[i]; if (k && k !== '.') drum(k, t + i * e); else if (intense) drum('H', t + i * e); }
       let x = 0;
-      for (const [deg, len, grace] of tune[bar % tune.length]) { note(deg, t + x * e, len, grace); x += len; }
+      for (const [deg, len, grace] of bt.notes) {
+        if (grace) lead(f7(deg + 1), t + x * e, .06);
+        lead(f7(deg), t + x * e + (grace ? .05 : 0), len * e);
+        x += len;
+      }
       bar++;
     }
-    function tick() { while (nextT < ctx.currentTime + .4) { const b = song.drum.length * song.eighth; scheduleBar(nextT); nextT += b; } }
+    function tick() { while (nextT < ctx.currentTime + .4) { scheduleBar(nextT); nextT += 8 * song.eighth; } }
     function choose(seed) { songIdx = (songIdx + 1 + Math.floor(Math.random() * (SONGS.length - 1))) % SONGS.length; song = SONGS[songIdx]; tune = compose(song, seed); bar = 0; }
     tune = compose(song, 7);
     return {
@@ -1346,7 +1355,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     setMood('sad'); $('#bubble').innerHTML = `<b>${esc(G.c.name)}</b>Hay aksi! Başka zaman gelirim o zaman.`; setTalkBtns('none'); Voice.speak('Hay aksi! Başka zaman gelirim o zaman.', G.c);
     const dayOver = S.served >= PER_DAY;
     setTimeout(() => {
-      $('#resultSheet').innerHTML = `<h2>Müşteri eli boş gitti</h2><p>Stok yetmediği için sipariş hazırlanamadı. Pazar Salı, Perşembe ve Pazar sabahları kurulur, o gün yeterince malzeme al.</p><button class="go" id="nextBtn">${dayOver ? 'Günü bitir' : 'Sıradaki müşteri'}</button>`;
+      $('#resultSheet').innerHTML = `<h2>Müşteri eli boş gitti</h2><p>Stok yetmediği için sipariş hazırlanamadı. Yarın sabah pazardan yeterince malzeme al.</p><button class="go" id="nextBtn">${dayOver ? 'Günü bitir' : 'Sıradaki müşteri'}</button>`;
       $('#resultModal').hidden = false;
       $('#nextBtn').onclick = () => dayOver ? showDayEnd() : nextCustomer();
     }, 900);
@@ -1420,7 +1429,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
   function renderKitchen() { renderStock(); renderTabs(); drawPrep(); renderPrepUI(); drawOven(); renderMeters(); renderPack(); }
 
   function useStock(id) {
-    if (S.stock[id] <= 0) { toast(`${ING[id].ad} bitti! Sonraki pazar: ${nextMarketName()} sabahı.`); blip(180, .2, 'sawtooth', .04); return false; }
+    if (S.stock[id] <= 0) { toast(`${ING[id].ad} bitti! Yarın sabah pazardan alabilirsin.`); blip(180, .2, 'sawtooth', .04); return false; }
     S.stock[id]--; save(); renderStock(); return true;
   }
   function onBin(id) {
@@ -1429,7 +1438,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
       if (!useStock('hamur')) return;
       G.prep = newItem(); renderItem(G.prep); drawPrep(); renderPrepUI(); renderTabs(); blip(380, .07); return;
     }
-    if (S.stock[id] <= 0) { toast(`${ING[id].ad} bitti! Sonraki pazar: ${nextMarketName()} sabahı.`); return; }
+    if (S.stock[id] <= 0) { toast(`${ING[id].ad} bitti! Yarın sabah pazardan alabilirsin.`); return; }
     G.tool = G.tool === id ? null : id; blip(520, .04); renderHolding();
   }
   $('#prepBins').addEventListener('click', (e) => { const b = e.target.closest('.bin'); if (b) onBin(b.dataset.bin); });
@@ -1917,7 +1926,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     $('#dayDecor').onclick = () => { $('#resultModal').hidden = true; advance(); openDecor(startDay); };
   }
   // ================= Market days: Tuesday, Thursday, Sunday mornings =================
-  const MARKET_DAYS = [1, 3, 6];
+  const MARKET_DAYS = [0, 1, 2, 3, 4, 5, 6];
   const isMarketDay = () => MARKET_DAYS.includes(weekday());
   function nextMarketName(from = 0) {
     for (let d = from; d < from + 7; d++) { const w = (S.day - 1 + d) % 7; if (MARKET_DAYS.includes(w) && (d > 0 || S.market !== S.day)) return GUNLER[w]; }
@@ -1930,7 +1939,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     $('#resultSheet').innerHTML = `
       <div class="market-head">${marketHead()}</div>
       <h1>Günaydın! Bugün ${GUNLER[weekday()]}, pazar kuruldu.</h1>
-      <p>Pazar sadece Salı, Perşembe ve Pazar sabahları kurulur. Dükkanı açmadan önce gidip malzeme alabilirsin.</p>
+      <p>Pazar her sabah kurulur. Dükkanı açmadan önce gidip malzeme alabilirsin.</p>
       ${low.length ? `<ul class="notes"><li class="bad"><span>Azalan malzemeler</span><b>${esc(low.join(', '))}</b></li></ul>` : ''}
       <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="go teal" id="goMarket">Pazara git</button><button class="go light" id="skipMarket">Bugün gitme, dükkanı aç</button></div>`;
     $('#resultModal').hidden = false;
@@ -2087,7 +2096,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
   function renderMarket() {
     $('#marketSheet').innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><h2>Stok durumu</h2><span class="pill money">${S.money.toLocaleString('tr-TR')} ₺</span></div>
-      <p>Pazar sadece Salı, Perşembe ve Pazar sabahları kurulur. Sonraki pazar: ${nextMarketName()} sabahı.</p>
+      <p>Pazar her sabah kurulur. Günün ilk müşterisinden önce gidebilirsin.</p>
       <div class="mlist">${MARKET.map(([id]) => `<div class="mrow"><canvas width="${56 * K}" height="${56 * K}" data-ic="${id}"></canvas><div><b>${ING[id].ad}</b><small class="${S.stock[id] <= 3 ? 'low' : ''}">Elinde: ${S.stock[id]}</small></div><span></span></div>`).join('')}</div>
       <button class="go light" data-close>Kapat</button>`;
     for (const cv of document.querySelectorAll('#marketSheet canvas')) drawIcon(cv.getContext('2d'), cv.dataset.ic, 56);
