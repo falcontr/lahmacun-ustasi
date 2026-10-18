@@ -402,11 +402,12 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     };
     // meter: groups of eighths per bar; drum: one letter per eighth (D düm, T tek, k soft tek, B davul, t davul stick)
     const SONGS = [
-      { name: 'Hicaz Karşılama', scale: 'hicaz', root: 293.66, meter: [2, 2, 2, 3], eighth: .19, inst: 'saz', drum: 'D.TkD.TkT', busy: 'k' },
-      { name: 'Roman Havası', scale: 'hicaz', root: 220, meter: [2, 2, 2, 3], eighth: .16, inst: 'klarnet', drum: 'D.T.D.TTT', busy: 'k' },
-      { name: 'Çiftetelli', scale: 'rast', root: 196, meter: [2, 2, 2, 2], eighth: .17, inst: 'klarnet', drum: 'D.TTD.T.', busy: 'k' },
-      { name: 'Karadeniz Horonu', scale: 'ussak', root: 293.66, meter: [2, 2, 3], eighth: .125, inst: 'kemence', drum: 'DkTkDkT', busy: '' },
-      { name: 'Halay', scale: 'kurdi', root: 261.63, meter: [2, 2, 2, 2], eighth: .2, inst: 'zurna', drum: 'B..tB.t.', busy: 't' },
+      { name: 'Urfa Sıra Gecesi', scale: 'ussak', root: 293.66, meter: [3, 2, 2, 3], eighth: .17, inst: 'saz', drum: 'D.kT.D.T.k', busy: 'k' },
+      { name: 'Urfa Halayı', scale: 'ussak', root: 293.66, meter: [2, 2, 2, 2], eighth: .19, inst: 'zurna', drum: 'B..tB.t.', busy: 't' },
+      { name: 'Antep Halayı', scale: 'kurdi', root: 329.63, meter: [2, 2, 2, 2], eighth: .15, inst: 'zurna', drum: 'B.tBB.t.', busy: 't' },
+      { name: 'Antep Oyun Havası', scale: 'hicaz', root: 293.66, meter: [2, 2, 2, 3], eighth: .16, inst: 'saz', drum: 'D.TkD.TkT', busy: 'k' },
+      { name: 'Adana Halayı', scale: 'hicaz', root: 261.63, meter: [2, 2, 2, 2], eighth: .2, inst: 'zurna', drum: 'B..tB.tt', busy: 't' },
+      { name: 'Urfa Kemençesi', scale: 'ussak', root: 293.66, meter: [2, 2, 3], eighth: .14, inst: 'kemence', drum: 'DkTkDkT', busy: '' },
     ];
     let ctx = null, master = null, noise = null, timer = null, nextT = 0, bar = 0, intense = false;
     let song = SONGS[0], tune = null, songIdx = 0;
