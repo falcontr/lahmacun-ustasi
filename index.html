@@ -150,6 +150,19 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
 #bagView { flex: none; width: min(220px, 55%); }
 .bagrow svg { width: 100%; height: auto; display: block; }
 .salad-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; max-width: 320px; }
+.fridge { background: linear-gradient(#dfe9ee, #c3d2d9); border: 6px solid #b8c4c9; border-radius: 14px; padding: 8px; box-shadow: inset 0 0 0 2px #e9eef0; }
+.fridge-door { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; border-radius: 8px; padding: 8px;
+  background: linear-gradient(135deg, rgba(255,255,255,.6), rgba(190,225,240,.35) 40%, rgba(255,255,255,.25)); border-bottom: 4px solid #a9c2cc; }
+@media (max-width: 700px) { .fridge-door { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.drink { display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; background: none; cursor: pointer; padding: 4px; border-radius: 10px; font-weight: 800; }
+.drink:hover { background: rgba(255,255,255,.5); }
+.drink:active { transform: translateY(2px); }
+.drink svg { height: 104px; width: auto; display: block; }
+.drink span { font-size: .8rem; text-align: center; }
+.drink small { font-size: .72rem; color: var(--ink-soft); }
+.tray { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-weight: 800; }
+.dchip { display: inline-flex; align-items: center; gap: 4px; border: 0; border-radius: 999px; padding: 3px 10px 3px 4px; background: var(--marble); font-weight: 800; cursor: pointer; }
+.dchip svg { height: 26px; width: auto; }
 #cup { width: 100%; height: auto; aspect-ratio: 240 / 170; cursor: pointer; touch-action: manipulation; display: block; }
 .cup-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
@@ -320,6 +333,11 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
               <div class="cup-actions"><button class="mini" id="lidBtn"></button><button class="mini" id="cupEmpty">Kabı boşalt</button></div>
             </div>
           </div>
+          <div class="panel" style="margin-top:16px">
+            <h3>İçecek dolabı <small>müşterinin istediği içeceklere dokun</small></h3>
+            <div class="fridge"><div class="fridge-door" id="fridgeBtns"></div></div>
+            <div class="tray"><span>Siparişe eklenen:</span><span id="drinkTray"></span></div>
+          </div>
           <div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="go green" id="deliverBtn">Kutuyu kapat, poşetle ve teslim et</button></div>
         </div>
       </div>
@@ -387,6 +405,19 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     marul:     { ad: 'Marul' },
     paket:     { ad: 'Kutu ve poşet' },
   };
+  const DRINKS = { ayran: ['Ayran', 20], buyukayran: ['Büyük ayran', 30], sarikola: ['Sarı kola', 25], kola: ['Kola', 30], limonata: ['Limonata', 25], salgam: ['Şalgam suyu', 25] };
+  const DRINK_IDS = Object.keys(DRINKS);
+  function drinkSVG(id) {
+    const bottle = (body, cap, band, extra = '') => `<svg viewBox="0 0 40 92" aria-hidden="true"><ellipse cx="20" cy="89" rx="12" ry="3" fill="rgba(0,0,0,.15)"/>
+      <path d="M12 34q0-9 5-13v-9h6v9q5 4 5 13v50q0 4-4 4h-8q-4 0-4-4z" fill="${body}"/><rect x="16" y="6" width="8" height="7" rx="1.5" fill="${cap}"/>
+      <rect x="12" y="46" width="16" height="20" fill="${band}"/>${extra}<path d="M15 30q-1 20 0 52" stroke="#fff" stroke-width="2" opacity=".45" fill="none"/></svg>`;
+    if (id === 'ayran') return `<svg viewBox="0 0 40 92" aria-hidden="true"><ellipse cx="20" cy="89" rx="13" ry="3" fill="rgba(0,0,0,.15)"/><path d="M8 46h24l-3 42H11z" fill="#fbfbf8" stroke="#cfd8dc"/><rect x="6" y="42" width="28" height="6" rx="2" fill="#1f5f9a"/><path d="M11 58h18v12H11z" fill="#1f5f9a"/><path d="M14 64q6-5 12 0" stroke="#fff" stroke-width="1.5" fill="none"/></svg>`;
+    if (id === 'buyukayran') return bottle('#fbfbf8', '#1f5f9a', '#1f5f9a', '<path d="M15 56q5-5 10 0" stroke="#fff" stroke-width="1.5" fill="none"/>');
+    if (id === 'sarikola') return bottle('#f2c230', '#c8322b', '#fffdf7', '<circle cx="20" cy="56" r="5" fill="#f2c230"/>');
+    if (id === 'kola') return bottle('#3a1a0e', '#c8322b', '#c8322b', '<path d="M14 58q6-6 12 0" stroke="#fff" stroke-width="1.5" fill="none"/>');
+    if (id === 'limonata') return bottle('#f6e7a0', '#3c8f2f', '#fffdf7', '<circle cx="20" cy="56" r="5.5" fill="#f2d23a"/><circle cx="20" cy="56" r="3.5" fill="#fbe78a"/>');
+    return bottle('#5a0f2e', '#e07a1f', '#e07a1f', '<circle cx="20" cy="56" r="4" fill="#7a1a3e"/>');
+  }
   const TOPS = ['sogan', 'maydanoz', 'aci', 'sarimsak', 'isot', 'limon', 'domates', 'yesillik'];
   const SALADS = ['marul', 'domates', 'limon'];
   const PREP_BINS = ['hamur', 'harc', ...TOPS];
@@ -406,7 +437,6 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     art:   { ad: 'Duvar resimleri', items: [['yok', 'Resim yok', 0], ['galata', 'Galata tabloları', 150], ['bogaz', 'Boğaz manzarası', 200], ['kapadokya', 'Kapadokya balonları', 260]] },
     lamp:  { ad: 'Aydınlatma', items: [['ampul', 'Çıplak ampul', 0], ['sarkit', 'Sarkıt lambalar', 150], ['fener', 'Osmanlı fenerleri', 380]] },
     plant: { ad: 'Bitki', items: [['yok', 'Bitki yok', 0], ['saksi', 'Sardunya saksıları', 90], ['zeytin', 'Zeytin ağacı', 280]] },
-    extra: { ad: 'Ekstra', items: [['yok', 'Yok', 0], ['ayran', 'Ayran dolabı', 220]] },
   };
   const PER_DAY = 6, PRICE = 80, STORE_KEY = 'lahmacun-ustasi-v3';
 
@@ -939,11 +969,12 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
           ${[[40, 190], [76, 210], [60, 170], [30, 220]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4" fill="#2f2a3a"/>`).join('')}
           <path d="M22 430l8-74h56l8 74z" fill="#b5562f"/><rect x="16" y="352" width="84" height="12" rx="3" fill="#9d4a29"/></g>`
         : '';
-    const fridge = eq.extra === 'ayran' ? `<g><rect x="642" y="156" width="74" height="234" rx="6" fill="#000" opacity=".2" filter="url(#${id}-blur)"/>
-      <rect x="638" y="150" width="74" height="234" rx="6" fill="#e9eef0" stroke="#b8c4c9" stroke-width="3"/><rect x="638" y="150" width="74" height="26" rx="6" fill="#1f5f9a"/><text x="675" y="169" text-anchor="middle" font-family="Baloo 2, sans-serif" font-weight="800" font-size="15" fill="#fff">AYRAN</text>
-      <rect x="645" y="182" width="60" height="190" fill="#cfe6f0" opacity=".8"/>
-      ${[0, 1, 2, 3].map(r => [0, 1, 2].map(c => `<rect x="${650 + c * 18}" y="${196 + r * 46}" width="12" height="30" rx="3" fill="#fff"/><rect x="${651 + c * 18}" y="${192 + r * 46}" width="10" height="6" rx="2" fill="#2a9d8f"/>`).join('') + `<rect x="645" y="${228 + r * 46}" width="60" height="3" fill="#a9c2cc"/>`).join('')}
-      <rect x="645" y="182" width="12" height="190" fill="#fff" opacity=".25"/></g>` : '';
+    const shelfRow = [['#fbfbf8', '#1f5f9a'], ['#fbfbf8', '#1f5f9a'], ['#f2c230', '#c8322b'], ['#3a1a0e', '#c8322b'], ['#f6e7a0', '#3c8f2f'], ['#5a0f2e', '#e07a1f']];
+    const fridge = `<g><rect x="642" y="156" width="74" height="234" rx="6" fill="#000" opacity=".2" filter="url(#${id}-blur)"/>
+      <rect x="638" y="150" width="74" height="234" rx="6" fill="#e9eef0" stroke="#b8c4c9" stroke-width="3"/><rect x="638" y="150" width="74" height="26" rx="6" fill="#1f5f9a"/><text x="675" y="168" text-anchor="middle" font-family="Baloo 2, sans-serif" font-weight="800" font-size="13" fill="#fff">İÇECEK</text>
+      <rect x="645" y="182" width="60" height="190" fill="#cfe6f0" opacity=".85"/>
+      ${[0, 1, 2, 3].map(r => [0, 1, 2].map(c => { const [b, cp] = shelfRow[(r * 3 + c) % 6], x = 650 + c * 18, y = 196 + r * 46; return r === 0 ? `<path d="M${x} ${y + 8}h12l-1 22h-10z" fill="#fbfbf8"/><rect x="${x - 1}" y="${y + 5}" width="14" height="4" fill="#1f5f9a"/>` : `<path d="M${x + 2} ${y + 10}q0-4 3-6v-5h2v5q3 2 3 6v20h-8z" fill="${b}"/><rect x="${x + 5}" y="${y - 3}" width="2" height="3" fill="${cp}"/>`; }).join('') + `<rect x="645" y="${228 + r * 46}" width="60" height="3" fill="#a9c2cc"/>`).join('')}
+      <rect x="645" y="182" width="12" height="190" fill="#fff" opacity=".25"/></g>`;
 
     const custG = cust ? `<g id="cust" transform="translate(380 162) scale(2)"><ellipse cx="60" cy="160" rx="50" ry="6" fill="#000" opacity=".15"/>${customerInner(cust, mood)}</g>` : '';
     const counter = `<g>
@@ -1194,19 +1225,24 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
   // ================= Orders =================
   let G = null;
   const qtyWord = ['bir', 'iki', 'üç'];
-  const emptyG = () => ({ c: randCustomer(), order: randOrder(), repeats: 0, phase: 'talk', prep: null, oven: [null, null, null], ready: [], bagged: [], cup: { slots: {}, lid: false }, tool: null, station: 0 });
+  const emptyG = () => ({ c: randCustomer(), order: randOrder(), repeats: 0, phase: 'talk', prep: null, oven: [null, null, null], ready: [], bagged: [], drinks: [], cup: { slots: {}, lid: false }, tool: null, station: 0 });
   function randOrder() {
     const d = S.day;
     const qty = d === 1 ? 1 : pick(d === 2 ? [1, 1, 2] : [1, 1, 2, 2, 3]);
     const nTop = pick(d === 1 ? [0, 1, 1, 2] : [0, 1, 2, 2, 3, 3, 4]);
     const tops = shuffle(TOPS).slice(0, nTop);
-    return { qty, toppings: TOPS.filter(t => tops.includes(t)), salad: SALADS.slice() };
+    const drinks = [];
+    if (Math.random() < .88) { const n = pick([1, 1, 1, 2, 2]) + (qty >= 3 ? 1 : 0); for (let i = 0; i < n; i++) drinks.push(pick(['ayran', 'ayran', 'buyukayran', 'buyukayran', 'sarikola', 'kola', 'limonata', 'salgam', 'salgam'])); }
+    return { qty, toppings: TOPS.filter(t => tops.includes(t)), salad: SALADS.slice(), drinks };
   }
   function orderText(o) {
     const t = o.toppings.map(id => ING[id].sifat);
     const q = o.qty === 1 ? 'bir' : qtyWord[o.qty - 1] + ' tane';
     const main = t.length ? `Bana ${q} ${joinTr(t)} lahmacun yapar mısın?` : `Bana ${q} sade lahmacun, üstüne hiçbir şey koyma.`;
-    return main;
+    if (!o.drinks.length) return main;
+    const cnt = {}; for (const d of o.drinks) cnt[d] = (cnt[d] || 0) + 1;
+    const list = joinTr(Object.entries(cnt).map(([d, n]) => `${qtyWord[n - 1] || n} ${lower(DRINKS[d][0])}`));
+    return main + ' ' + pick([`Yanına da ${list} alayım.`, `İçecek olarak da ${list} ver.`, `Bir de ${list} istiyorum.`]);
   }
   function canServe(o) {
     const st = S.stock;
@@ -1611,7 +1647,14 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
   }
   $('#lidBtn').addEventListener('click', () => { G.cup.lid = !G.cup.lid; blip(500, .05, 'square', .04); renderPack(); });
   $('#cupEmpty').addEventListener('click', () => { G.cup = { slots: {}, lid: false }; renderPack(); });
+  function renderDrinks() {
+    $('#fridgeBtns').innerHTML = DRINK_IDS.map(d => `<button class="drink" data-drink="${d}" aria-label="${DRINKS[d][0]} ekle">${drinkSVG(d)}<span>${DRINKS[d][0]}</span><small>${DRINKS[d][1]} ₺</small></button>`).join('');
+    $('#drinkTray').innerHTML = G.drinks.length ? G.drinks.map((d, i) => `<button class="dchip" data-rm="${i}" title="Çıkar">${drinkSVG(d)}${DRINKS[d][0]} ×</button>`).join('') : '<span class="empty">henüz yok</span>';
+  }
+  $('#fridgeBtns').addEventListener('click', (e) => { const b = e.target.closest('[data-drink]'); if (!b) return; G.drinks.push(b.dataset.drink); blip(760, .05, 'triangle', .04); renderDrinks(); });
+  $('#drinkTray').addEventListener('click', (e) => { const b = e.target.closest('[data-rm]'); if (!b) return; G.drinks.splice(+b.dataset.rm, 1); blip(300, .05); renderDrinks(); });
   function renderPack() {
+    renderDrinks();
     const r = $('#ready');
     $('#readyCount').textContent = G.ready.length ? `${G.ready.length} hazır` : '';
     r.innerHTML = G.ready.length ? G.ready.map((it, i) => `<div class="rcard"><canvas width="${110 * K}" height="${110 * K}" data-r="${i}"></canvas><small>${bakeLabel(it.bake)}</small><div style="display:flex;gap:4px"><button class="mini green" data-wrap="${i}">İkiye katla</button><button class="mini" data-bin2="${i}">Çöp</button></div></div>`).join('') : '<p class="empty">Fırından çıkan lahmacunlar buraya gelir.</p>';
@@ -1672,8 +1715,17 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     if (openLid) sal = Math.max(0, sal - 6);
     const salBad = [smiss.length && 'Eksik: ' + smiss.map(name).join(', '), openLid && 'Kapak açık kalmış'].filter(Boolean);
     notes.push(salBad.length ? ['İkram salata', salBad.join(' · '), false] : ['İkram salata', 'Tam, kapağı kapalı', true]);
-    const stars = Math.max(0, Math.min(5, Math.round((itemAvg + sal) / 20)));
-    return { notes, stars };
+    const want = {}, gave = {};
+    for (const d of o.drinks) want[d] = (want[d] || 0) + 1;
+    for (const d of G.drinks) gave[d] = (gave[d] || 0) + 1;
+    const dmiss = [], dextra = []; let drinkPay = 0;
+    for (const d of DRINK_IDS) { const w = want[d] || 0, g = gave[d] || 0; if (g < w) dmiss.push(`${w - g} ${lower(DRINKS[d][0])}`); if (g > w) dextra.push(`${g - w} ${lower(DRINKS[d][0])}`); drinkPay += Math.min(w, g) * DRINKS[d][1]; }
+    const hasDrinks = o.drinks.length > 0;
+    let dpts = hasDrinks ? Math.max(0, 10 - dmiss.length * 5 - dextra.length * 3) : -3 * dextra.length;
+    if (hasDrinks || dextra.length) notes.push(dmiss.length || dextra.length ? ['İçecekler', [dmiss.length && 'Eksik: ' + dmiss.join(', '), dextra.length && 'Fazla: ' + dextra.join(', ')].filter(Boolean).join(' · '), false] : ['İçecekler', 'Tam istediği gibi', true]);
+    const max = 100 + (hasDrinks ? 10 : 0);
+    const stars = Math.max(0, Math.min(5, Math.round((itemAvg + sal + dpts) / max * 5)));
+    return { notes, stars, drinkPay };
   }
   const decorBonus = () => Object.keys(DECOR).reduce((s, k) => s + (DECOR[k].items.find(x => x[0] === S.equip[k])[2] || 0), 0) / 100 | 0;
 
@@ -1683,9 +1735,9 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
   function deliver() {
     if (!G.bagged.length) return;
     if (!useStock('paket')) return;
-    const { notes, stars } = evaluate();
+    const { notes, stars, drinkPay } = evaluate();
     const n = Math.min(G.bagged.length, G.order.qty);
-    const pay = stars === 0 ? 0 : PRICE * n;
+    const pay = stars === 0 ? 0 : PRICE * n + drinkPay;
     let tip = stars >= 5 ? 20 : stars === 4 ? 10 : 0;
     if (stars >= 3) tip += decorBonus();
     if (G.repeats >= 2) tip = Math.max(0, tip - (G.repeats - 1) * 5);
@@ -1699,7 +1751,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
     sh.innerHTML = `<h2>Kutu kapatılıyor…</h2><div class="deliver-view">${boxSVG(G.bagged.length, true)}</div>`;
     m.hidden = false; blip(250, .12, 'square', .04);
     setTimeout(() => {
-      sh.innerHTML = `<h2>Kutu poşete kondu</h2><div class="deliver-view">${bagSVG(G.bagged.length, true)}${hasCup ? cupMiniSVG() : ''}</div>`;
+      sh.innerHTML = `<h2>Kutu poşete kondu</h2><div class="deliver-view">${bagSVG(G.bagged.length, true)}${hasCup ? cupMiniSVG() : ''}${G.drinks.map(d => drinkSVG(d).replace('<svg ', '<svg style="height:110px" ')).join('')}</div>`;
       blip(450, .1, 'triangle');
     }, reduced ? 300 : 1000);
     setTimeout(() => {
@@ -1716,7 +1768,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
           <div class="stars" aria-label="${stars} yıldız">${'★'.repeat(stars)}<span class="off">${'★'.repeat(5 - stars)}</span></div></div></div>
         <p>“${esc(line)}”</p>
         <ul class="notes">${notes.map(([k, v, ok]) => `<li class="${ok ? 'ok' : 'bad'}"><span>${k}</span><b>${esc(v)}</b></li>`).join('')}</ul>
-        <div class="earn">${pay ? `+${pay} ₺` : 'Para vermedi'}${tip ? ` · ${tip} ₺ bahşiş` : ''}</div>
+        <div class="earn">${pay ? `+${pay} ₺` : 'Para vermedi'}${pay && drinkPay ? ` <small style="font-size:.9rem;color:var(--ink-soft)">(içecek ${drinkPay} ₺)</small>` : ''}${tip ? ` · ${tip} ₺ bahşiş` : ''}</div>
         ${G.repeats >= 2 ? '<p>Siparişi çok tekrar ettirdin, bahşiş azaldı.</p>' : ''}
         <button class="go" id="nextBtn">${dayOver ? 'Günü bitir' : 'Sıradaki müşteri'}</button>`;
       $('#nextBtn').focus();
